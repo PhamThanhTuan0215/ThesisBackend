@@ -9,7 +9,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 app.get('/', (req, res) => {
-    return res.status(200).json({code: 1, message: 'Hello product service'})
+    return res.status(200).json({code: 0, message: 'Hello product service'})
 })
 
 app.listen(PORT || 3001, () => {
