@@ -1,17 +1,22 @@
 const express = require('express');
 const app = express();
-const PORT = 3000;
 const cors = require('cors')
 const proxy = require('express-http-proxy')
 const bodyParser = require('body-parser');
+
+require('dotenv').config()
+const {URL_API_GATEWAY, PORT, URL_PRODUCT_SERVICE, URL_USER_SERVICE} = process.env
 
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.use('/product', proxy('http://localhost:3001'))
-app.use('/user', proxy('http://localhost:3001'))
+app.get('/', (req, res) => {
+    return res.status(200).json({message: 'run api-gateway successfully'})
+})
+app.use('/product', proxy(URL_PRODUCT_SERVICE))
+app.use('/user', proxy(URL_USER_SERVICE))
 
-app.listen(PORT, () => {
-    console.log("http://localhost:" + PORT);
+app.listen(PORT || 3000, () => {
+    console.log('http://localhost:' + (PORT || 3000));
 });
