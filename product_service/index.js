@@ -19,7 +19,7 @@ sequelize.authenticate()
     .then(() => {
         console.log("Connect database server successfully")
 
-        sequelize.sync()
+        sequelize.sync({force: true})
             .then(() => {
                 console.log('Database synchronized');
                 
