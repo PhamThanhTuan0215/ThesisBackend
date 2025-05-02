@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const sequelize = require('../database/sequelize');
+const sequelize = require('../sequelize');
 
 const Product = sequelize.define('Product', {
     id: {
@@ -16,7 +16,7 @@ const Product = sequelize.define('Product', {
         allowNull: false,
     },
     stock: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.FLOAT,
         allowNull: false,
     },
     description: {

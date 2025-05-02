@@ -1,4 +1,5 @@
-const Product = require('../models/Product');
+const Product = require('../database/models/Product');
+const Review = require('../database/models/Review');
 
 class ProductService {
     

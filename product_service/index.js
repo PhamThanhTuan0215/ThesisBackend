@@ -19,7 +19,7 @@ sequelize.authenticate()
     .then(() => {
         console.log("Connect database server successfully")
 
-        sequelize.sync({force: true})
+        sequelize.sync() // Tạo bảng mới nếu bảng chưa tồn tại, nếu đã tồn tại thì giữ nguyên bảng cũ (nếu sửa đổi bảng cũ thành giống với model hiện tại thì có thể xảy ra lỗi mất hết toàn bộ dữ liệu trong bảng cũ, vì nó sẽ drop bảng cũ và tạo bảng mới)
             .then(() => {
                 console.log('Database synchronized');
                 
