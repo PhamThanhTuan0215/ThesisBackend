@@ -14,6 +14,8 @@ app.get('/', (req, res) => {
 })
 
 app.use("/products", require("./routers/Product"))
+app.use("/product-types", require("./routers/ProductType"))
+app.use("/reviews", require("./routers/Review"))
 
 sequelize.authenticate()
     .then(() => {
@@ -21,8 +23,9 @@ sequelize.authenticate()
 
         sequelize.sync() // Tạo bảng mới nếu bảng chưa tồn tại, nếu đã tồn tại thì giữ nguyên bảng cũ (nếu sửa đổi bảng cũ thành giống với model hiện tại thì có thể xảy ra lỗi mất hết toàn bộ dữ liệu trong bảng cũ, vì nó sẽ drop bảng cũ và tạo bảng mới)
             .then(() => {
+
                 console.log('Database synchronized');
-                
+
                 app.listen(PORT || 3001, () => {
                     console.log("http://localhost:" + (PORT || 3001));
                 });
