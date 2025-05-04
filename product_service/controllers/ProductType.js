@@ -233,6 +233,23 @@ module.exports.getCategories = async (req, res) => {
     }
 }
 
+module.exports.getDistinctCategoryNames = async (req, res) => {
+    try {
+
+        const categories = await Category.findAll({
+            attributes: ['category_name'],
+            group: ['category_name'],
+        });
+
+        const categoryNameList = categories.map(category => category.category_name);
+
+        return res.status(200).json({ code: 0, message: 'Get all brands successfully', data: categoryNameList });
+    }
+    catch (error) {
+        return res.status(500).json({ code: 2, message: error.message });
+    }
+}
+
 module.exports.addCategories = async (req, res) => {
 
     try {

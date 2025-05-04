@@ -21,6 +21,8 @@ Router.put('/update-detail-attribute/:id', Controller.updateDetailAttribute)
 
 Router.get('/list-category/:product_type_id', Controller.getCategories)
 
+Router.get('/category-names', Controller.getDistinctCategoryNames)
+
 Router.post('/add-categories/:product_type_id', Controller.addCategories)
 
 Router.delete('/delete-category/:id', Controller.deleteCategory)
