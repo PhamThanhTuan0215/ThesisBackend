@@ -15,6 +15,7 @@ app.get('/', (req, res) => {
 
 app.use("/products", require("./routers/Product"))
 app.use("/product-types", require("./routers/ProductType"))
+app.use("/purchased-products", require("./routers/PurchasedProduct"))
 app.use("/reviews", require("./routers/Review"))
 
 sequelize.authenticate()

@@ -9,7 +9,7 @@ module.exports.getAllProductTypes = async (req, res) => {
         return res.status(200).json({ code: 0, message: 'Get all product types successfully', data: productTypes });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: error.message });
+        return res.status(500).json({ code: 2, message: 'Get all product types failed', error: error.message });
     }
 }
 
@@ -34,10 +34,10 @@ module.exports.addProductType = async (req, res) => {
     }
     catch (error) {
         if (error.name === 'SequelizeUniqueConstraintError' && error.errors[0].message) {
-            return res.status(400).json({ code: 2, error: error.errors[0].message });
+            return res.status(400).json({ code: 2, message: 'Add product types failed', error: error.errors[0].message });
         }
 
-        return res.status(500).json({ code: 2, error: error.message });
+        return res.status(500).json({ code: 2, message: 'Add product types failed', error: error.message });
     }
 }
 
@@ -54,11 +54,11 @@ module.exports.deleteProductType = async (req, res) => {
 
         await productType.destroy();
 
-        return res.status(200).json({ code: 0, message: 'Delete product type successfully', delete_id: id });
+        return res.status(200).json({ code: 0, message: 'Delete product type successfully', data: productType });
         
     }
     catch (error) {
-        return res.status(500).json({ code: 2, error: error.message });
+        return res.status(500).json({ code: 2, message: 'Delete product type failed', error: error.message });
     }
 }
 
@@ -90,10 +90,10 @@ module.exports.updateProductType = async (req, res) => {
     }
     catch (error) {
         if (error.name === 'SequelizeUniqueConstraintError' && error.errors[0].message) {
-            return res.status(400).json({ code: 2, error: error.errors[0].message });
+            return res.status(400).json({ code: 2, message: 'Update product type failed', error: error.errors[0].message });
         }
 
-        return res.status(500).json({ code: 2, error: error.message });
+        return res.status(500).json({ code: 2, message: 'Update product type failed', error: error.message });
     }
 }
 
@@ -114,7 +114,7 @@ module.exports.getDetailAttributes = async (req, res) => {
         return res.status(200).json({ code: 0, message: 'Get all detail attributes successfully', data: detailAttributes });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: error.message });
+        return res.status(500).json({ code: 2, message: 'Get all detail attributes failed', error: error.message });
     }
 }
 
@@ -150,10 +150,10 @@ module.exports.addDetailAttributes = async (req, res) => {
     }
     catch (error) {
         if (error.name === 'SequelizeUniqueConstraintError' && error.errors[0].message) {
-            return res.status(400).json({ code: 2, error: error.errors[0].message });
+            return res.status(400).json({ code: 2, message: 'Add detail attributes failed', error: error.errors[0].message });
         }
 
-        return res.status(500).json({ code: 2, error: error.message });
+        return res.status(500).json({ code: 2, message: 'Add detail attributes failed', error: error.message });
     }
 }
 
@@ -170,11 +170,11 @@ module.exports.deleteDetailAttribute = async (req, res) => {
 
         await detailAttribute.destroy();
 
-        return res.status(200).json({ code: 0, message: 'Delete detail attribute successfully', delete_id: id });
+        return res.status(200).json({ code: 0, message: 'Delete detail attribute successfully', data: detailAttribute });
         
     }
     catch (error) {
-        return res.status(500).json({ code: 2, error: error.message });
+        return res.status(500).json({ code: 2, message: 'Delete detail attribute failed', error: error.message });
     }
 }
 
@@ -206,10 +206,10 @@ module.exports.updateDetailAttribute = async (req, res) => {
     }
     catch (error) {
         if (error.name === 'SequelizeUniqueConstraintError' && error.errors[0].message) {
-            return res.status(400).json({ code: 2, error: error.errors[0].message });
+            return res.status(400).json({ code: 2, message: 'Update detail attribute failed', error: error.errors[0].message });
         }
 
-        return res.status(500).json({ code: 2, error: error.message });
+        return res.status(500).json({ code: 2, message: 'Update detail attribute failed', error: error.message });
     }
 }
 
@@ -229,7 +229,7 @@ module.exports.getCategories = async (req, res) => {
         return res.status(200).json({ code: 0, message: 'Get all categories successfully', data: categories });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: error.message });
+        return res.status(500).json({ code: 2, message: 'Get all categories failed', error: error.message });
     }
 }
 
@@ -246,7 +246,7 @@ module.exports.getDistinctCategoryNames = async (req, res) => {
         return res.status(200).json({ code: 0, message: 'Get all brands successfully', data: categoryNameList });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: error.message });
+        return res.status(500).json({ code: 2, message: 'Get all brands failed', error: error.message });
     }
 }
 
@@ -283,10 +283,10 @@ module.exports.addCategories = async (req, res) => {
     }
     catch (error) {
         if (error.name === 'SequelizeUniqueConstraintError' && error.errors[0].message) {
-            return res.status(400).json({ code: 2, error: error.errors[0].message });
+            return res.status(400).json({ code: 2, message: 'Add categories failed', error: error.errors[0].message });
         }
 
-        return res.status(500).json({ code: 2, error: error.message });
+        return res.status(500).json({ code: 2, message: 'Add categories failed', error: error.message });
     }
 }
 
@@ -302,11 +302,11 @@ module.exports.deleteCategory = async (req, res) => {
 
         await category.destroy();
 
-        return res.status(200).json({ code: 0, message: 'Delete category successfully', delete_id: id });
+        return res.status(200).json({ code: 0, message: 'Delete category successfully', data: category });
         
     }
     catch (error) {
-        return res.status(500).json({ code: 2, error: error.message });
+        return res.status(500).json({ code: 2, message: 'Delete category failed', error: error.message });
     }
 }
 
@@ -338,9 +338,9 @@ module.exports.updateCategory = async (req, res) => {
     }
     catch (error) {
         if (error.name === 'SequelizeUniqueConstraintError' && error.errors[0].message) {
-            return res.status(400).json({ code: 2, error: error.errors[0].message });
+            return res.status(400).json({ code: 2, message: 'Update category failed', error: error.errors[0].message });
         }
 
-        return res.status(500).json({ code: 2, error: error.message });
+        return res.status(500).json({ code: 2, message: 'Update category failed', error: error.message });
     }
 }

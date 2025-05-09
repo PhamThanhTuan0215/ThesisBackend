@@ -130,4 +130,8 @@ const Product = sequelize.define('Product', {
     timestamps: false
 });
 
+Product.beforeUpdate((product, options) => {
+    product.update_at = new Date();
+});
+
 module.exports = Product;

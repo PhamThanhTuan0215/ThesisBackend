@@ -15,6 +15,8 @@ Router.post('/add-product', Controller.uploadCustom, Controller.addProduct)
 
 Router.delete('/delete-product/:id', Controller.uploadCustom, Controller.deleteProduct)
 
+Router.put('/update-product/:id', Controller.uploadCustom, Controller.updateProduct)
+
 Router.put('/approval-product/:id', Controller.uploadCustom, Controller.approvalProduct)
 
 Router.put('/set-active-product/:id', Controller.uploadCustom, Controller.setActiveProduct)

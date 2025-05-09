@@ -13,6 +13,10 @@ const Review = sequelize.define('Review', {
         type: DataTypes.BIGINT,
         allowNull: false,
     },
+    user_fullname: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
     product_id: {
         type: DataTypes.BIGINT,
         allowNull: false,
@@ -26,7 +30,7 @@ const Review = sequelize.define('Review', {
         type: DataTypes.STRING,
         allowNull: false,
     },
-    rate: {
+    rating: {
         type: DataTypes.FLOAT,
         allowNull: false,
     },
@@ -37,6 +41,11 @@ const Review = sequelize.define('Review', {
 }, {
     tableName: 'reviews',
     timestamps: false,
+});
+
+// Hook: Tự động cập nhật modified_at
+Review.beforeUpdate((review, options) => {
+    review.modified_at = new Date();
 });
 
 module.exports = Review;

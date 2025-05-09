@@ -116,7 +116,7 @@ module.exports.getAllProducts = async (req, res) => {
         return res.status(200).json({ code: 0, message: 'Get all products successfully', data: products });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: error.message });
+        return res.status(500).json({ code: 2, message: 'Get all products failed', error: error.message });
     }
 }
 
@@ -134,7 +134,7 @@ module.exports.getProductById = async (req, res) => {
         return res.status(200).json({ code: 0, message: 'Get product successfully', data: product });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: error.message });
+        return res.status(500).json({ code: 2, message: 'Get product failed', error: error.message });
     }
 }
 
@@ -156,7 +156,7 @@ module.exports.getProductByIdForCustomer = async (req, res) => {
         return res.status(200).json({ code: 0, message: 'Get product for customer successfully', data: product });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: error.message });
+        return res.status(500).json({ code: 2, message: 'Get product for customer failed', error: error.message });
     }
 }
 
@@ -257,10 +257,10 @@ module.exports.addProduct = async (req, res) => {
         }
 
         if (error.name === 'SequelizeUniqueConstraintError' && error.errors[0].message) {
-            return res.status(400).json({ code: 2, error: error.errors[0].message });
+            return res.status(400).json({ code: 2, message: 'Add product failed', error: error.errors[0].message });
         }
 
-        return res.status(500).json({ code: 2, message: error.message });
+        return res.status(500).json({ code: 2, message: 'Add product failed', error: error.message });
     }
 }
 
@@ -293,10 +293,10 @@ module.exports.deleteProduct = async (req, res) => {
             deleteFile(public_id_registration_license);
         }
 
-        return res.status(200).json({ code: 0, message: 'Delete product type successfully', delete_id: id });
+        return res.status(200).json({ code: 0, message: 'Delete product type successfully', data: product });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: error.message });
+        return res.status(500).json({ code: 2, message: 'Delete product type failed', error: error.message });
     }
 }
 
@@ -442,10 +442,10 @@ module.exports.updateProduct = async (req, res) => {
         }
 
         if (error.name === 'SequelizeUniqueConstraintError' && error.errors[0].message) {
-            return res.status(400).json({ code: 2, error: error.errors[0].message });
+            return res.status(400).json({ code: 2, message: 'Update product failed', error: error.errors[0].message });
         }
 
-        return res.status(500).json({ code: 2, message: error.message });
+        return res.status(500).json({ code: 2, message: 'Update product failed', error: error.message });
     }
 }
 
@@ -481,7 +481,7 @@ module.exports.approvalProduct = async (req, res) => {
         return res.status(200).json({ code: 0, message: 'Update approval status product successfully', data: updatedRows[0] });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: error.message });
+        return res.status(500).json({ code: 2, message: 'Update approval status product failed', error: error.message });
     }
 }
 
@@ -510,7 +510,7 @@ module.exports.setActiveProduct = async (req, res) => {
         return res.status(200).json({ code: 0, message: 'Update active status product successfully', data: updatedRows[0] });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: error.message });
+        return res.status(500).json({ code: 2, message: 'Update active status product failed', error: error.message });
     }
 }
 
@@ -527,7 +527,7 @@ module.exports.getAllBrands = async (req, res) => {
         return res.status(200).json({ code: 0, message: 'Get all brands successfully', data: brandList });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: error.message });
+        return res.status(500).json({ code: 2, message: 'Get all brands failed', error: error.message });
     }
 }
 
