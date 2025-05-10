@@ -33,19 +33,9 @@ const Review = sequelize.define('Review', {
     rating: {
         type: DataTypes.FLOAT,
         allowNull: false,
-    },
-    modified_at: {
-        type: DataTypes.DATE,
-        defaultValue: DataTypes.NOW,
-    },
+    }
 }, {
-    tableName: 'reviews',
-    timestamps: false,
-});
-
-// Hook: Tự động cập nhật modified_at
-Review.beforeUpdate((review, options) => {
-    review.modified_at = new Date();
+    tableName: 'reviews'
 });
 
 module.exports = Review;

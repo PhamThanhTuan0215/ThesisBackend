@@ -116,22 +116,9 @@ const Product = sequelize.define('Product', {
                 }
             }
         }
-    },
-    create_at: {
-        type: DataTypes.DATE,
-        defaultValue: DataTypes.NOW,
-    },
-    update_at: {
-        type: DataTypes.DATE,
-        defaultValue: DataTypes.NOW,
     }
 }, {
-    tableName: 'products', // TABLE_NAME
-    timestamps: false
-});
-
-Product.beforeUpdate((product, options) => {
-    product.update_at = new Date();
+    tableName: 'products' // TABLE_NAME
 });
 
 module.exports = Product;

@@ -39,7 +39,7 @@ module.exports.writeReview = async (req, res) => {
                 user_id,
                 product_id
             },
-            order: [['purchased_at', 'DESC']]
+            order: [['updatedAt', 'DESC']]
         })
 
         if(!purchasedProduct) {
@@ -52,7 +52,7 @@ module.exports.writeReview = async (req, res) => {
 
         const now = new Date();
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 ngày trước
-        if (purchasedProduct.purchased_at < thirtyDaysAgo) {
+        if (purchasedProduct.updatedAt < thirtyDaysAgo) {
             return res.status(403).json({ code: 1, message: 'You can only review product purchased within the last 30 days.' });
         }
 

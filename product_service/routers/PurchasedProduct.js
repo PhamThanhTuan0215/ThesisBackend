@@ -3,10 +3,10 @@ const Router = express.Router()
 
 const Controller = require('../controllers/PurchasedProduct')
 
-// endpoint tạo các purchased_products khi tạo đơn hàng
+Router.post('/add', Controller.addPurchasedProduct)
 
-// endpoint cập nhật trạng thái các purchased_products khi đơn hàng hoàn thành hoặc hoàn trả đơn
+Router.put('/update-status', Controller.updateStatusPurchasedProduct)
 
-// endpoint xóa các purchased_products khi hủy đơn hàng
+Router.delete('/cancel/:order_id', Controller.deletePurchasedProduct)
 
 module.exports = Router

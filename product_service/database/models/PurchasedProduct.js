@@ -17,6 +17,10 @@ const PurchasedProduct = sequelize.define('PurchasedProduct', {
         type: DataTypes.BIGINT,
         allowNull: false,
     },
+    seller_id: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+    },
     product_id: {
         type: DataTypes.BIGINT,
         allowNull: false,
@@ -25,10 +29,6 @@ const PurchasedProduct = sequelize.define('PurchasedProduct', {
             key: 'id'
         },
         onUpdate: 'CASCADE'
-    },
-    product_name: {
-        type: DataTypes.STRING,
-        allowNull: false,
     },
     quantity: {
         type: DataTypes.INTEGER,
@@ -56,14 +56,9 @@ const PurchasedProduct = sequelize.define('PurchasedProduct', {
                 msg: "status must be processing, completed, or returned"
             }
         }
-    },
-    purchased_at: {
-        type: DataTypes.DATE,
-        defaultValue: DataTypes.NOW,
-    },
+    }
 }, {
-    tableName: 'purchased_products',
-    timestamps: false
+    tableName: 'purchased_products'
 });
 
 module.exports = PurchasedProduct;

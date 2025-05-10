@@ -5,7 +5,7 @@ const Controller = require('../controllers/Review')
 
 Router.get('/:product_id', Controller.getReviewByProductId);
 
-Router.post('/add/:product_id',  Controller.writeReview);   // tạm thời dùng trực tiếp thông tin của user trong query, về sau thay bằng lấy việc lấy thông tin user từ token ở header
+Router.post('/add/:product_id',  Controller.writeReview);   // tạm thời dùng trực tiếp thông tin của user trong query, về sau thay bằng việc lấy thông tin user từ token ở header
 
 Router.delete('/delete/:review_id', Controller.deleteReview);   // tạm thời dùng trực tiếp thông tin của user trong query
 
