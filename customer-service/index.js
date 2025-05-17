@@ -13,6 +13,8 @@ app.get('/', (req, res) => {
     return res.status(200).json({code: 0, message: 'Hello customer service'})
 })
 
+app.use("/carts", require("./routers/Cart"))
+app.use("/wishlists", require("./routers/Wishlist"))
 
 sequelize.authenticate()
     .then(() => {

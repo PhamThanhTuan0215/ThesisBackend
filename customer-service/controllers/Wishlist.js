@@ -1,0 +1,1 @@
+const WishlistItem = require('../database/models/WishlistItem')
