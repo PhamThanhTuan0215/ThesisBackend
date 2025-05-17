@@ -33,6 +33,10 @@ const Review = sequelize.define('Review', {
     rating: {
         type: DataTypes.FLOAT,
         allowNull: false,
+        validate: {
+            min: 0,
+            max: 5
+        }
     }
 }, {
     tableName: 'reviews'

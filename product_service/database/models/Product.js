@@ -19,7 +19,7 @@ const Product = sequelize.define('Product', {
         allowNull: false,
     },
     import_price: {
-        type: DataTypes.FLOAT,
+        type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
         defaultValue: 0,
         validate: {
@@ -27,7 +27,7 @@ const Product = sequelize.define('Product', {
         }
     },
     retail_price: {
-        type: DataTypes.FLOAT,
+        type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
         defaultValue: 0,
         validate: {

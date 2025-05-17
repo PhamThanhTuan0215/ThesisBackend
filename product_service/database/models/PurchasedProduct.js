@@ -39,7 +39,7 @@ const PurchasedProduct = sequelize.define('PurchasedProduct', {
         }
     },
     total_price: {
-        type: DataTypes.FLOAT,
+        type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
         defaultValue: 0,
         validate: {
