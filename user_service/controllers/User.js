@@ -31,9 +31,9 @@ module.exports.getAllUsers = async (req, res) => {
                 }
             }
         });
-        return res.status(200).json({code: 0, message: 'Lấy danh sách người dùng thành công', data: users});
+        return res.status(200).json({ code: 0, message: 'Lấy danh sách người dùng thành công', data: users });
     } catch (error) {
-        return res.status(500).json({code: 2, message: 'Lỗi server', error: error.message});
+        return res.status(500).json({ code: 2, message: 'Lỗi server', error: error.message });
     }
 }
 
@@ -46,11 +46,11 @@ module.exports.getUserById = async (req, res) => {
             }
         });
         if (!user) {
-            return res.status(404).json({code: 1, message: 'Không tìm thấy người dùng'});
+            return res.status(404).json({ code: 1, message: 'Không tìm thấy người dùng' });
         }
-        return res.status(200).json({code: 0, message: 'Lấy thông tin người dùng thành công', data: user});
+        return res.status(200).json({ code: 0, message: 'Lấy thông tin người dùng thành công', data: user });
     } catch (error) {
-        return res.status(500).json({code: 2, message: 'Lỗi server', error: error.message});
+        return res.status(500).json({ code: 2, message: 'Lỗi server', error: error.message });
     }
 }
 
@@ -92,23 +92,38 @@ module.exports.login = async (req, res) => {
             return res.status(400).json({ code: 1, message: 'Mật khẩu không đúng' });
         }
 
+        // Generate unique JTI (JWT ID) for token tracking
+        const jti = require('crypto').randomBytes(16).toString('hex');
+
         const accessToken = jwt.sign(
-            { id: user.id, type: 'access', role: user.role },
+            { id: user.id, type: 'access', role: user.role, jti },
             process.env.JWT_SECRET,
             { expiresIn: '1h' }
         );
 
         const refreshToken = jwt.sign(
-            { id: user.id, type: 'refresh' },
+            { id: user.id, type: 'refresh', jti },
             process.env.JWT_REFRESH_SECRET,
             { expiresIn: '7d' }
         );
+
+        // Store refresh token in database
+        const TokenController = require('./Token');
+        await TokenController.createToken(
+            user.id,
+            jti,
+            new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+        );
+
+        // Remove sensitive data before sending response
+        const userData = user.get({ plain: true });
+        delete userData.password;
 
         return res.status(200).json({
             code: 0,
             message: 'Đăng nhập thành công',
             data: {
-                user,
+                user: userData,
                 accessToken,
                 refreshToken
             }

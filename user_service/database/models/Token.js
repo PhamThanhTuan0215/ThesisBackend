@@ -19,9 +19,14 @@ const Token = sequelize.define('Token', {
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE'
     },
-    token: {
+    jti: {
         type: DataTypes.STRING,
         allowNull: false,
+    },
+    is_revoked: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
     },
     expires_at: {
         type: DataTypes.DATE,
@@ -33,7 +38,7 @@ const Token = sequelize.define('Token', {
     indexes: [
         {
             unique: true,
-            fields: ['token'] // Đảm bảo token là duy nhất
+            fields: ['jti'] // Đảm bảo jti là duy nhất
         },
         {
             fields: ['user_id'] // Tối ưu hóa tìm kiếm theo user_id
