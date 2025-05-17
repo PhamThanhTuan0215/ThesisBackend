@@ -173,6 +173,7 @@ module.exports.addProduct = async (req, res) => {
             retail_price,
             stock,
             seller_id,
+            seller_name,
             product_type_id,
             category_id,
             return_policy, // gửi dạng json đã được chuyển sang string
@@ -187,6 +188,7 @@ module.exports.addProduct = async (req, res) => {
         if (!retail_price || isNaN(retail_price) || retail_price < 0) errors.push('retail_price must be a number and greater than or equal to 0');
         if (!stock || isNaN(stock) || stock < 0) errors.push('stock must be a number and greater than or equal to 0');
         if (!seller_id || seller_id <= 0) errors.push('seller_id is required');
+        if (!seller_name || seller_name === '') errors.push('seller_name is required');
         if (!product_type_id || product_type_id <= 0) errors.push('product_type_id is required');
         if (!category_id || category_id <= 0) errors.push('category_id is required');
         if (!return_policy) errors.push('return_policy are required');
@@ -238,6 +240,7 @@ module.exports.addProduct = async (req, res) => {
             retail_price,
             stock,
             seller_id,
+            seller_name,
             url_image,
             url_registration_license,
             product_type_id,
@@ -315,6 +318,7 @@ module.exports.updateProduct = async (req, res) => {
             retail_price,
             stock,
             seller_id,
+            seller_name,
             product_type_id,
             category_id,
             return_policy,
@@ -329,6 +333,7 @@ module.exports.updateProduct = async (req, res) => {
         if (!retail_price || isNaN(retail_price) || retail_price < 0) errors.push('retail_price must be a number and greater than or equal to 0');
         if (!stock || isNaN(stock) || stock < 0) errors.push('stock must be a number and greater than or equal to 0');
         if (!seller_id || seller_id <= 0) errors.push('seller_id is required');
+        if (!seller_name || seller_name === '') errors.push('seller_name is required');
         if (!product_type_id || product_type_id <= 0) errors.push('product_type_id is required');
         if (!category_id || category_id <= 0) errors.push('category_id is required');
         if (!return_policy) errors.push('return_policy are required');
@@ -415,6 +420,7 @@ module.exports.updateProduct = async (req, res) => {
             retail_price,
             stock,
             seller_id,
+            seller_name,
             product_type_id,
             category_id,
             return_policy: return_policy_json,

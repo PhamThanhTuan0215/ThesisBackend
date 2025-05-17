@@ -46,6 +46,10 @@ const Product = sequelize.define('Product', {
         type: DataTypes.BIGINT,
         allowNull: false,
     },
+    seller_name: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
     approval_status: {
         type: DataTypes.STRING,
         allowNull: false,
