@@ -15,6 +15,7 @@ app.get('/', (req, res) => {
 
 app.use("/carts", require("./routers/Cart"))
 app.use("/wishlists", require("./routers/Wishlist"))
+app.use("/complaints", require("./routers/Complaint"))
 
 sequelize.authenticate()
     .then(() => {
