@@ -3,10 +3,10 @@ const Router = express.Router()
 
 const Controller = require('../controllers/Wishlist')
 
-Router.get('/', Controller.getWishlist);
+Router.get('/', Controller.getWishlist); // user_id trong query
 
 Router.post('/add', Controller.addProductToWishlist);
 
-Router.delete('/remove', Controller.removeProductFromWishlist);
+Router.delete('/remove/:id', Controller.removeProductFromWishlist);
 
 module.exports = Router

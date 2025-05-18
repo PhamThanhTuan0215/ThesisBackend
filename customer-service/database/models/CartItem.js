@@ -7,7 +7,7 @@ const CartItem = sequelize.define('CartItem', {
         primaryKey: true,
         autoIncrement: true,
     },
-    cart_id: {
+    user_id: {
         type: DataTypes.BIGINT,
         allowNull: false,
     },
@@ -45,7 +45,7 @@ const CartItem = sequelize.define('CartItem', {
     indexes: [
         {
             unique: true,
-            fields: ['cart_id', 'product_id'],
+            fields: ['user_id', 'product_id'],
         }
     ]
 });
