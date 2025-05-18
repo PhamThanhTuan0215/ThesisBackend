@@ -21,4 +21,6 @@ Router.put('/approval-product/:id', Controller.uploadCustom, Controller.approval
 
 Router.put('/set-active-product/:id', Controller.uploadCustom, Controller.setActiveProduct)
 
+Router.post('/check-stock', Controller.uploadCustom, Controller.checkStock)
+
 module.exports = Router

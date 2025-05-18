@@ -57,7 +57,7 @@ module.exports.getAllProducts = async (req, res) => {
                 conditions.product_type_id = productType.id;
             }
             else {
-                return res.status(200).json({ code: 0, message: 'Get all products successfully', data: [] });
+                return res.status(200).json({ code: 0, message: 'Lấy danh sách sản phẩm thành công', data: [] });
             }
         }
         if (category_name) {
@@ -74,7 +74,7 @@ module.exports.getAllProducts = async (req, res) => {
                 conditions.category_id = { [Op.in]: categoryIds };
             }
             else {
-                return res.status(200).json({ code: 0, message: 'Get all products successfully', data: [] });
+                return res.status(200).json({ code: 0, message: 'Lấy danh sách sản phẩm thành công', data: [] });
             }
         }
 
@@ -113,10 +113,10 @@ module.exports.getAllProducts = async (req, res) => {
             attributes
         });
 
-        return res.status(200).json({ code: 0, message: 'Get all products successfully', data: products });
+        return res.status(200).json({ code: 0, message: 'Lấy danh sách sản phẩm thành công', data: products });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: 'Get all products failed', error: error.message });
+        return res.status(500).json({ code: 2, message: 'Lấy danh sách sản phẩm thất bại', error: error.message });
     }
 }
 
@@ -128,13 +128,13 @@ module.exports.getProductById = async (req, res) => {
         const product = await Product.findByPk(id);
 
         if (!product) {
-            return res.status(404).json({ code: 1, message: 'Product not found' });
+            return res.status(404).json({ code: 1, message: 'Sản phẩm không tồn tại' });
         }
 
-        return res.status(200).json({ code: 0, message: 'Get product successfully', data: product });
+        return res.status(200).json({ code: 0, message: 'Lấy chi tiết sản phẩm thành công', data: product });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: 'Get product failed', error: error.message });
+        return res.status(500).json({ code: 2, message: 'Lấy chi tiết sản phẩm thất bại', error: error.message });
     }
 }
 
@@ -150,13 +150,13 @@ module.exports.getProductByIdForCustomer = async (req, res) => {
         });
 
         if (!product) {
-            return res.status(404).json({ code: 1, message: 'Product not found' });
+            return res.status(404).json({ code: 1, message: 'Sản phẩm không tồn tại' });
         }
 
-        return res.status(200).json({ code: 0, message: 'Get product for customer successfully', data: product });
+        return res.status(200).json({ code: 0, message: 'Lấy thông tin cần thiết của sảm phẩm thành công', data: product });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: 'Get product for customer failed', error: error.message });
+        return res.status(500).json({ code: 2, message: 'Lấy thông tin cần thiết của sảm phẩm thất bại', error: error.message });
     }
 }
 
@@ -182,17 +182,17 @@ module.exports.addProduct = async (req, res) => {
 
         const errors = [];
 
-        if (!name || name === '') errors.push('name is required');
-        if (!brand || brand === '') errors.push('brand is required');
-        if (!import_price || isNaN(import_price) || import_price < 0) errors.push('import_price must be a number and greater than or equal to 0');
-        if (!retail_price || isNaN(retail_price) || retail_price < 0) errors.push('retail_price must be a number and greater than or equal to 0');
-        if (!stock || isNaN(stock) || stock < 0) errors.push('stock must be a number and greater than or equal to 0');
-        if (!seller_id || seller_id <= 0) errors.push('seller_id is required');
-        if (!seller_name || seller_name === '') errors.push('seller_name is required');
-        if (!product_type_id || product_type_id <= 0) errors.push('product_type_id is required');
-        if (!category_id || category_id <= 0) errors.push('category_id is required');
-        if (!return_policy) errors.push('return_policy are required');
-        if (!product_details) errors.push('product_details are required');
+        if (!name || name === '') errors.push('name cần cung cấp');
+        if (!brand || brand === '') errors.push('brand cần cung cấp');
+        if (!import_price || isNaN(import_price) || import_price < 0) errors.push('import_price phải là số và lớn hơn hoặc bằng 0');
+        if (!retail_price || isNaN(retail_price) || retail_price < 0) errors.push('retail_price phải là số và lớn hơn hoặc bằng 0');
+        if (!stock || isNaN(stock) || stock < 0) errors.push('stock phải là số và lớn hơn hoặc bằng 0');
+        if (!seller_id || seller_id <= 0) errors.push('seller_id cần cung cấp');
+        if (!seller_name || seller_name === '') errors.push('seller_name cần cung cấp');
+        if (!product_type_id || product_type_id <= 0) errors.push('product_type_id cần cung cấp');
+        if (!category_id || category_id <= 0) errors.push('category_id cần cung cấp');
+        if (!return_policy) errors.push('return_policy cần cung cấp');
+        if (!product_details) errors.push('product_details cần cung cấp');
 
         let image_file = null;
         let registration_license_file = null;
@@ -205,14 +205,14 @@ module.exports.addProduct = async (req, res) => {
         }
 
         if (!image_file) {
-            errors.push('No file upload, image file are required');
+            errors.push('Không có file được tải lên, image file cần cung cấp');
         }
         if (!registration_license_file) {
-            errors.push('No file upload, registration_license file are required');
+            errors.push('Không có file được tải lên, registration_license file cần cung cấp');
         }
 
         if (errors.length > 0) {
-            return res.status(400).json({ code: 1, message: 'Validation failed', errors });
+            return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
 
         const return_policy_json = JSON.parse(return_policy);
@@ -249,7 +249,7 @@ module.exports.addProduct = async (req, res) => {
             product_details: product_details_json
         });
 
-        return res.status(201).json({ code: 0, message: 'Add product successfully', data: product });
+        return res.status(201).json({ code: 0, message: 'Thêm sản phẩm thành công', data: product });
     }
     catch (error) {
         if (public_id_image) {
@@ -260,10 +260,10 @@ module.exports.addProduct = async (req, res) => {
         }
 
         if (error.name === 'SequelizeUniqueConstraintError' && error.errors[0].message) {
-            return res.status(400).json({ code: 2, message: 'Add product failed', error: error.errors[0].message });
+            return res.status(400).json({ code: 2, message: 'Thêm sản phẩm thất bại', error: error.errors[0].message });
         }
 
-        return res.status(500).json({ code: 2, message: 'Add product failed', error: error.message });
+        return res.status(500).json({ code: 2, message: 'Thêm sản phẩm thất bại', error: error.message });
     }
 }
 
@@ -274,7 +274,7 @@ module.exports.deleteProduct = async (req, res) => {
         const product = await Product.findByPk(id);
 
         if (!product) {
-            return res.status(404).json({ code: 1, message: 'Product not found' });
+            return res.status(404).json({ code: 1, message: 'Sản phẩm không tồn tại' });
         }
 
         let public_id_image = null
@@ -296,10 +296,10 @@ module.exports.deleteProduct = async (req, res) => {
             deleteFile(public_id_registration_license);
         }
 
-        return res.status(200).json({ code: 0, message: 'Delete product type successfully', data: product });
+        return res.status(200).json({ code: 0, message: 'Xóa sản phẩm thành công', data: product });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: 'Delete product type failed', error: error.message });
+        return res.status(500).json({ code: 2, message: 'Xóa sản phẩm thất bại', error: error.message });
     }
 }
 
@@ -327,20 +327,20 @@ module.exports.updateProduct = async (req, res) => {
 
         const errors = [];
 
-        if (!name || name === '') errors.push('name is required');
-        if (!brand || brand === '') errors.push('brand is required');
-        if (!import_price || isNaN(import_price) || import_price < 0) errors.push('import_price must be a number and greater than or equal to 0');
-        if (!retail_price || isNaN(retail_price) || retail_price < 0) errors.push('retail_price must be a number and greater than or equal to 0');
-        if (!stock || isNaN(stock) || stock < 0) errors.push('stock must be a number and greater than or equal to 0');
-        if (!seller_id || seller_id <= 0) errors.push('seller_id is required');
-        if (!seller_name || seller_name === '') errors.push('seller_name is required');
-        if (!product_type_id || product_type_id <= 0) errors.push('product_type_id is required');
-        if (!category_id || category_id <= 0) errors.push('category_id is required');
-        if (!return_policy) errors.push('return_policy are required');
-        if (!product_details) errors.push('product_details are required');
+        if (!name || name === '') errors.push('name cần cung cấp');
+        if (!brand || brand === '') errors.push('brand cần cung cấp');
+        if (!import_price || isNaN(import_price) || import_price < 0) errors.push('import_price phải là số và lớn hơn hoặc bằng 0');
+        if (!retail_price || isNaN(retail_price) || retail_price < 0) errors.push('retail_price phải là số và lớn hơn hoặc bằng 0');
+        if (!stock || isNaN(stock) || stock < 0) errors.push('stock phải là số và lớn hơn hoặc bằng 0');
+        if (!seller_id || seller_id <= 0) errors.push('seller_id cần cung cấp');
+        if (!seller_name || seller_name === '') errors.push('seller_name cần cung cấp');
+        if (!product_type_id || product_type_id <= 0) errors.push('product_type_id cần cung cấp');
+        if (!category_id || category_id <= 0) errors.push('category_id cần cung cấp');
+        if (!return_policy) errors.push('return_policy cần cung cấp');
+        if (!product_details) errors.push('product_details cần cung cấp');
 
         if (errors.length > 0) {
-            return res.status(400).json({ code: 1, message: 'Validation failed', errors });
+            return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
 
         const return_policy_json = JSON.parse(return_policy);
@@ -359,7 +359,7 @@ module.exports.updateProduct = async (req, res) => {
         let product = await Product.findByPk(id);
 
         if (!product) {
-            return res.status(404).json({ code: 1, message: 'Product not found' });
+            return res.status(404).json({ code: 1, message: 'Sản phẩm không tồn tại' });
         }
 
         let old_public_id_image = null;
@@ -437,7 +437,7 @@ module.exports.updateProduct = async (req, res) => {
             deleteFile(old_public_id_registration_license);
         }
 
-        return res.status(200).json({ code: 0, message: 'Update product successfully', data: product });
+        return res.status(200).json({ code: 0, message: 'Cập nhật sản phẩm thành công', data: product });
     }
     catch (error) {
         if (new_public_id_image) {
@@ -448,10 +448,10 @@ module.exports.updateProduct = async (req, res) => {
         }
 
         if (error.name === 'SequelizeUniqueConstraintError' && error.errors[0].message) {
-            return res.status(400).json({ code: 2, message: 'Update product failed', error: error.errors[0].message });
+            return res.status(400).json({ code: 2, message: 'Cập nhật sản phẩm thất bại', error: error.errors[0].message });
         }
 
-        return res.status(500).json({ code: 2, message: 'Update product failed', error: error.message });
+        return res.status(500).json({ code: 2, message: 'Cập nhật sản phẩm thất bại', error: error.message });
     }
 }
 
@@ -462,10 +462,10 @@ module.exports.approvalProduct = async (req, res) => {
 
         const errors = [];
 
-        if (!approval_status || approval_status === '') errors.push('approval_status is required');
+        if (!approval_status || approval_status === '') errors.push('approval_status cần cung cấp');
 
         if (errors.length > 0) {
-            return res.status(400).json({ code: 1, message: 'Validation failed', errors });
+            return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
 
         let active_status = 'inactive';
@@ -481,13 +481,13 @@ module.exports.approvalProduct = async (req, res) => {
         );
 
         if (affectedRows === 0) {
-            return res.status(404).json({ code: 1, message: 'Product not found or no changes made' });
+            return res.status(404).json({ code: 1, message: 'Sản phẩm không tồn tại hoặc không bị thay đổi' });
         }
 
-        return res.status(200).json({ code: 0, message: 'Update approval status product successfully', data: updatedRows[0] });
+        return res.status(200).json({ code: 0, message: 'Cập nhật trạng thái phê duyệt sản phẩm thành công', data: updatedRows[0] });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: 'Update approval status product failed', error: error.message });
+        return res.status(500).json({ code: 2, message: 'Cập nhật trạng thái phê duyệt sản phẩm thất bại', error: error.message });
     }
 }
 
@@ -498,10 +498,10 @@ module.exports.setActiveProduct = async (req, res) => {
 
         const errors = [];
 
-        if (!active_status || active_status === '') errors.push('active_status is required');
+        if (!active_status || active_status === '') errors.push('active_status cần cung cấp');
 
         if (errors.length > 0) {
-            return res.status(400).json({ code: 1, message: 'Validation failed', errors });
+            return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
 
         const [affectedRows, updatedRows] = await Product.update(
@@ -510,13 +510,13 @@ module.exports.setActiveProduct = async (req, res) => {
         );
 
         if (affectedRows === 0) {
-            return res.status(404).json({ code: 1, message: 'Product must exist and have been approved' });
+            return res.status(404).json({ code: 1, message: 'Sản phẩm phải tồn tại và đã được duyệt' });
         }
 
-        return res.status(200).json({ code: 0, message: 'Update active status product successfully', data: updatedRows[0] });
+        return res.status(200).json({ code: 0, message: 'Cập nhật trạng thái kích hoạt của sản phẩm thành công', data: updatedRows[0] });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: 'Update active status product failed', error: error.message });
+        return res.status(500).json({ code: 2, message: 'Cập nhật trạng thái kích hoạt của sản phẩm thất bại', error: error.message });
     }
 }
 
@@ -530,10 +530,45 @@ module.exports.getAllBrands = async (req, res) => {
 
         const brandList = products.map(products => products.brand);
 
-        return res.status(200).json({ code: 0, message: 'Get all brands successfully', data: brandList });
+        return res.status(200).json({ code: 0, message: 'Lấy tất cả tên thương hiệu thành công', data: brandList });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: 'Get all brands failed', error: error.message });
+        return res.status(500).json({ code: 2, message: 'Lấy tất cả tên thương hiệu thất bại', error: error.message });
+    }
+}
+
+module.exports.checkStock = async (req, res) => {
+    try {
+        const { products } = req.body
+
+        const errors = [];
+
+        if (!products  || !Array.isArray(products )) errors.push('products cần cung cấp');
+
+        if (errors.length > 0) {
+            return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
+        }
+
+        for (const item of products) {
+            const { id, name, quantity } = item;
+
+            const product = await Product.findByPk(id, {
+                attributes: ['id', 'stock']
+            });
+
+            if(!product) {
+                return res.status(404).json({ code: 1, message: `Sản phẩm không tồn tại: ${name}` });   
+            }
+
+            if(product.stock < quantity) {
+                return res.status(400).json({ code: 1, message: `Sản phẩm không đủ hàng: ${name} chỉ còn lại ${product.stock}` });
+            }
+        }
+
+        return res.status(200).json({ code: 0, message: 'Tất cả sản phẩm còn đủ hàng' });
+    }
+    catch (error) {
+        return res.status(500).json({ code: 2, message: 'Kiểm tra kho hàng thất bại', error: error.message });
     }
 }
 

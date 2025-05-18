@@ -20,7 +20,7 @@ module.exports.reportProducts = async (req, res) => {
             const isValidEndDate = /^\d{4}-\d{2}-\d{2}$/.test(endDate);
 
             if (!isValidStartDate || !isValidEndDate) {
-                return res.status(400).json({ code: 1, message: 'Invalid date format. Please use yyyy-mm-dd.' });
+                return res.status(400).json({ code: 1, message: 'Định dạng ngày không hợp lệ. Vui lòng sử dụng: yyyy-mm-dd.' });
             }
 
             selectedStartDate = new Date(startDate);
@@ -90,9 +90,9 @@ module.exports.reportProducts = async (req, res) => {
 
         const reportProducts = Object.values(productStats);
 
-        return res.status(200).json({ code: 0, message: 'Report products sùccessfully', data: reportProducts });
+        return res.status(200).json({ code: 0, message: 'Báo cáo và thống kê sản phẩm đã bán thành công', data: reportProducts });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: 'Report products failed', error: error.message });
+        return res.status(500).json({ code: 2, message: 'Báo cáo và thống kê sản phẩm đã bán thất bại', error: error.message });
     }
 }

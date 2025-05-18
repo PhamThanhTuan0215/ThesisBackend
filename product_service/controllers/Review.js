@@ -10,10 +10,10 @@ module.exports.getReviewByProductId = async (req, res) => {
             order: [['modified_at', 'DESC']]
         });
 
-        return res.status(200).json({ code: 0, message: 'Get list review of product successfully', data: reviews });
+        return res.status(200).json({ code: 0, message: 'Lấy danh sách đánh giá của sản phẩm thành công', data: reviews });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: 'Get list review of product failed', error: error.message });
+        return res.status(500).json({ code: 2, message: 'Lấy danh sách đánh giá của sản phẩm thất bại', error: error.message });
     }
 }
 
@@ -25,13 +25,13 @@ module.exports.writeReview = async (req, res) => {
 
         const errors = [];
 
-        if (!user_id || user_id <= 0) errors.push('user_id is required');
-        if (!user_fullname || user_fullname === '') errors.push('user_fullname is required');
-        if (!rating || isNaN(rating) || rating < 1) errors.push('rating must be a number and greater than or equal to 1');
-        if (!comment || comment === '') errors.push('comment is required');
+        if (!user_id || user_id <= 0) errors.push('user_id cần cung cấp');
+        if (!user_fullname || user_fullname === '') errors.push('user_fullname cần cung cấp');
+        if (!rating || isNaN(rating) || rating < 1) errors.push('rating phải là số và lớn hơn hoặc bằng 1');
+        if (!comment || comment === '') errors.push('comment cần cung cấp');
 
         if (errors.length > 0) {
-            return res.status(400).json({ code: 1, message: 'Validation failed', errors });
+            return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
 
         const purchasedProduct = await PurchasedProduct.findOne({
@@ -43,17 +43,17 @@ module.exports.writeReview = async (req, res) => {
         })
 
         if(!purchasedProduct) {
-            return res.status(403).json({ code: 1, message: 'You have not purchased this product.' });
+            return res.status(403).json({ code: 1, message: 'Chưa mua sản phẩm này' });
         }
 
         if(purchasedProduct.status !== 'completed') {
-            return res.status(403).json({ code: 1, message: 'You have not completed the product purchasing process.' });
+            return res.status(403).json({ code: 1, message: 'Chưa hoàn tất quá trình mua sản phẩm' });
         }
 
         const now = new Date();
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 ngày trước
         if (purchasedProduct.updatedAt < thirtyDaysAgo) {
-            return res.status(403).json({ code: 1, message: 'You can only review product purchased within the last 30 days.' });
+            return res.status(403).json({ code: 1, message: 'Chỉ có thể đánh giá sản phẩm đã mua dưới 30 ngày' });
         }
 
         let review = await Review.findOne({
@@ -66,7 +66,7 @@ module.exports.writeReview = async (req, res) => {
             review.user_fullname = user_fullname;
             await review.save();
 
-            return res.status(200).json({ code: 0, message: 'Update review successfully', data: review });
+            return res.status(200).json({ code: 0, message: 'Cập nhật đánh giá thành công', data: review });
         }
         else {
             review = await Review.create({
@@ -78,10 +78,10 @@ module.exports.writeReview = async (req, res) => {
             });
         }
 
-        return res.status(200).json({ code: 0, message: 'Write review successfully', data: review });
+        return res.status(200).json({ code: 0, message: 'Viết đánh giá thành công', data: review });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: 'Write review failed', error: error.message });
+        return res.status(500).json({ code: 2, message: 'Viết đánh giá thất bại', error: error.message });
     }
 }
 
@@ -93,19 +93,19 @@ module.exports.deleteReview = async (req, res) => {
         const review = await Review.findByPk(review_id);
 
         if (!review) {
-            return res.status(404).json({ code: 1, message: 'Review not found' });
+            return res.status(404).json({ code: 1, message: 'Đánh giá không tồn tại' });
         }
 
         if (review.user_id != user_id) {
-            return res.status(403).json({ code: 1, message: 'User is not allowed to delete this review' });
+            return res.status(403).json({ code: 1, message: 'Người dùng không được phép xóa đánh giá này' });
         }
 
         await review.destroy();
 
-        return res.status(200).json({ code: 0, message: 'Delete review successfully', data: review });
+        return res.status(200).json({ code: 0, message: 'Xóa đánh giá thành công', data: review });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: 'Delete review failed', error: error.message });
+        return res.status(500).json({ code: 2, message: 'Xóa đánh giá thất bại', error: error.message });
     }
 }
 
@@ -116,14 +116,14 @@ module.exports.deleteReviewByManager = async (req, res) => {
         const review = await Review.findByPk(review_id);
 
         if (!review) {
-            return res.status(404).json({ code: 1, message: 'Review not found' });
+            return res.status(404).json({ code: 1, message: 'Đánh giá không tồn tại' });
         }
 
         await review.destroy();
 
-        return res.status(200).json({ code: 0, message: 'Delete review successfully', data: review });
+        return res.status(200).json({ code: 0, message: 'Xóa đánh giá thành công', data: review });
     }
     catch (error) {
-        return res.status(500).json({ code: 2, message: 'Delete review failed', error: error.message });
+        return res.status(500).json({ code: 2, message: 'Xóa đánh giá thất bại', error: error.message });
     }
 }
