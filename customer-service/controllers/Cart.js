@@ -136,7 +136,7 @@ module.exports.removeProductFromCart = async (req, res) => {
 
         const errors = [];
 
-        if (!id || id <= 0) errors.push('cart_item_id cần cung cấp');
+        if (!id || id <= 0) errors.push('id cần cung cấp');
 
         if (errors.length > 0) {
             return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
