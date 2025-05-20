@@ -113,7 +113,9 @@ module.exports.getAllProducts = async (req, res) => {
             attributes
         });
 
-        return res.status(200).json({ code: 0, message: 'Lấy danh sách sản phẩm thành công', data: products });
+        const total = await Product.count({ where: conditions });
+
+        return res.status(200).json({ code: 0, message: 'Lấy danh sách sản phẩm thành công', total, data: products });
     }
     catch (error) {
         return res.status(500).json({ code: 2, message: 'Lấy danh sách sản phẩm thất bại', error: error.message });
