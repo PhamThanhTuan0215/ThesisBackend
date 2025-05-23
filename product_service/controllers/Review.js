@@ -7,7 +7,7 @@ module.exports.getReviewByProductId = async (req, res) => {
 
         const reviews = await Review.findAll({
             where: { product_id },
-            order: [['modified_at', 'DESC']]
+            order: [['updatedAt', 'DESC']]
         });
 
         return res.status(200).json({ code: 0, message: 'Lấy danh sách đánh giá của sản phẩm thành công', data: reviews });
