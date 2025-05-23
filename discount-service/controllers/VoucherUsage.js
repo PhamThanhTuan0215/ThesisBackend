@@ -120,3 +120,23 @@ module.exports.applyVoucher = async (req, res) => {
         return res.status(500).json({ code: 2, message: 'Áp dụng voucher thất bại', error: error.message });
     }
 }
+
+module.exports.saveVoucherUsage = async (req, res) => {
+    try {
+        
+
+    }
+    catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lưu lại voucher đã áp dụng thất bại', error: error.message });
+    }
+}
+
+module.exports.restoreVoucherUsage = async (req, res) => {
+    try {
+        
+
+    }
+    catch (error) {
+        return res.status(500).json({ code: 2, message: 'Hoàn lại voucher đã áp dụng thất bại', error: error.message });
+    }
+}
