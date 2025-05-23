@@ -15,6 +15,7 @@ app.get('/', (req, res) => {
 
 app.use("/vouchers/platform", require("./routers/PlatformVoucher"))
 app.use("/vouchers/shop", require("./routers/ShopVoucher"))
+app.use("/voucher-usages/", require("./routers/VoucherUsage"))
 
 sequelize.authenticate()
     .then(() => {
