@@ -13,7 +13,8 @@ app.get('/', (req, res) => {
     return res.status(200).json({code: 0, message: 'Hello discount service'})
 })
 
-app.use("/vouchers", require("./routers/Voucher"))
+app.use("/vouchers/platform", require("./routers/PlatformVoucher"))
+app.use("/vouchers/shop", require("./routers/ShopVoucher"))
 
 sequelize.authenticate()
     .then(() => {
