@@ -101,7 +101,7 @@ module.exports.createVoucher = async (req, res) => {
             end_date
         });
 
-        return res.status(200).json({ code: 0, message: 'Tạo voucher thành công', data: voucher });
+        return res.status(201).json({ code: 0, message: 'Tạo voucher thành công', data: voucher });
     }
     catch (error) {
         return res.status(500).json({ code: 2, message: 'Tạo voucher thất bại', error: error.message });

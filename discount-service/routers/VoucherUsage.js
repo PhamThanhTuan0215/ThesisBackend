@@ -7,7 +7,9 @@ Router.get('/platform', Controller.getPlatformVouchersAvailable) // đang dùng 
 
 Router.get('/shop/:seller_id', Controller.getShopVouchersAvailable) // đang dùng user_id trong query
 
-Router.post('/apply', Controller.applyVoucher) // kiểm tra điều kiện và áp dụng voucher
+Router.post('/apply', Controller.applyPlatformVoucher) // áp dụng voucher của sàn
+
+Router.post('/apply/:seller_id', Controller.applyShopVoucher) // áp dụng voucher của cửa hàng
 
 Router.post('/save', Controller.saveVoucherUsage)   // lưu lại voucher đã áp dụng
 
