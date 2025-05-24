@@ -133,6 +133,7 @@ module.exports.removeProductFromCart = async (req, res) => {
     try {
 
         const { id } = req.params
+        const { remove_all } = req.query
 
         const errors = [];
 
@@ -148,12 +149,18 @@ module.exports.removeProductFromCart = async (req, res) => {
             return res.status(404).json({ code: 1, message: 'Sản phẩm không tồn tại trong giỏ hàng' });
         }
 
-        if (cartItem.quantity > 1) {
-            cartItem.quantity -= 1;
-            await cartItem.save();
-        } else {
+        if (remove_all === true || remove_all === 'true') {
             cartItem.quantity = 0;
             await cartItem.destroy();
+        }
+        else {
+            if (cartItem.quantity > 1) {
+                cartItem.quantity -= 1;
+                await cartItem.save();
+            } else {
+                cartItem.quantity = 0;
+                await cartItem.destroy();
+            }
         }
 
         return res.status(200).json({ code: 0, message: 'Xóa sản phẩm khỏi giỏ hàng thành công', data: cartItem });
