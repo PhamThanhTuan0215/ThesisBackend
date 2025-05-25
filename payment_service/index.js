@@ -13,6 +13,8 @@ app.get('/', (req, res) => {
     return res.status(200).json({ code: 0, message: 'Hello payment service' })
 })
 
+app.use('/payments', require('./routers/Payment'))
+
 sequelize.authenticate()
     .then(() => {
         console.log("Connect database server successfully")
