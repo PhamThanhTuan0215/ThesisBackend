@@ -1,6 +1,7 @@
 const Voucher = require('../database/models/Voucher')
 const VoucherUsage = require('../database/models/VoucherUsage')
 const { Op } = require('sequelize')
+const sequelize = require('../database/sequelize');
 
 module.exports.getPlatformVouchersAvailable = async (req, res) => {
     try {
@@ -259,6 +260,7 @@ module.exports.applyPlatformVoucher = async (req, res) => {
             return {
                 store_id: store.seller_id,
                 voucher_id: voucher.id,
+                type: voucher.type,
                 allocated_discount_amount: Math.round(discount_amount_each_store) // làm tròn cho dễ quản lý
             };
         })
@@ -436,8 +438,81 @@ module.exports.applyShopVoucher = async (req, res) => {
 }
 
 module.exports.saveVoucherUsage = async (req, res) => {
+
     try {
 
+        const { user_id, stores } = req.body;
+
+        const errors = [];
+
+        if (!user_id || user_id <= 0) errors.push('user_id cần cung cấp');
+        if (!stores || !Array.isArray(stores)) errors.push('stores cần cung cấp');
+
+        if (errors.length > 0) {
+            return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
+        }
+
+        const voucherUsages = [];
+
+        // Duyệt qua từng cửa hàng
+        for (const store of stores) {
+            const { 
+                order_id,
+                order_voucher: shop_order_voucher,
+                freeship_voucher: shop_freeship_voucher,
+                platform_order_voucher,
+                platform_freeship_voucher,
+            } = store;
+
+            if(!order_id || order_id <= 0) {
+                return res.status(400).json({ code: 1, message: 'order_id cần cung cấp để lưu lại voucher đã áp dụng' });
+            }
+
+            // Kiểm tra và thêm voucher order của shop nếu có
+            if (shop_order_voucher && shop_order_voucher.is_applied && shop_order_voucher.voucher_id) {
+                voucherUsages.push({
+                    voucher_id: shop_order_voucher.voucher_id,
+                    user_id: user_id,
+                    order_id: order_id,
+                    discount_amount: shop_order_voucher.discount_amount
+                });
+            }
+
+            // Kiểm tra và thêm voucher freeship của shop nếu có
+            if (shop_freeship_voucher && shop_freeship_voucher.is_applied && shop_freeship_voucher.voucher_id) {
+                voucherUsages.push({
+                    voucher_id: shop_freeship_voucher.voucher_id,
+                    user_id: user_id,
+                    order_id: order_id,
+                    discount_amount: shop_freeship_voucher.discount_amount
+                });
+            }
+
+            // Kiểm tra và thêm voucher order của sàn nếu có
+            if (platform_order_voucher && platform_order_voucher.is_applied && platform_order_voucher.voucher_id) {
+                voucherUsages.push({
+                    voucher_id: platform_order_voucher.voucher_id,
+                    user_id: user_id,
+                    order_id: order_id,
+                    discount_amount: platform_order_voucher.discount_amount
+                });
+            }
+
+            // Kiểm tra và thêm voucher freeship của sàn nếu có
+            if (platform_freeship_voucher && platform_freeship_voucher.is_applied && platform_freeship_voucher.voucher_id) {
+                voucherUsages.push({
+                    voucher_id: platform_freeship_voucher.voucher_id,
+                    user_id: user_id,
+                    order_id: order_id,
+                    discount_amount: platform_freeship_voucher.discount_amount
+                });
+            }
+        }
+
+        // Lưu tất cả các voucher usage vào database
+        const voucherUsagesSaved = await VoucherUsage.bulkCreate(voucherUsages);
+
+        return res.status(201).json({ code: 0, message: 'Lưu lại voucher đã áp dụng thành công', data: voucherUsagesSaved  });
 
     }
     catch (error) {
@@ -445,9 +520,135 @@ module.exports.saveVoucherUsage = async (req, res) => {
     }
 }
 
+module.exports.getVoucherUsageByOrderId = async (req, res) => {
+    try {
+        const { order_id } = req.params;
+
+        const query = `
+            SELECT 
+                vu.id,
+                vu.voucher_id,
+                vu.user_id,
+                vu.order_id,
+                vu.discount_amount,
+                vu."createdAt" as usage_date,
+                v.code,
+                v.type,
+                v.issuer_type,
+                v.issuer_id,
+                v.description,
+                v.discount_unit,
+                v.discount_value,
+                v.max_discount_value,
+                v.min_order_value
+            FROM voucher_usages vu
+            JOIN vouchers v ON vu.voucher_id = v.id
+            WHERE vu.order_id = :order_id AND vu.is_applied = :is_applied
+        `;
+
+        const voucherUsages = await sequelize.query(query, {
+            replacements: { order_id: order_id, is_applied: true },
+            type: sequelize.QueryTypes.SELECT
+        });
+
+        // Format lại dữ liệu trả về
+        const formattedVoucherUsages = voucherUsages.map(usage => ({
+            id: usage.id,
+            voucher_id: usage.voucher_id,
+            user_id: usage.user_id,
+            order_id: usage.order_id,
+            discount_amount: usage.discount_amount,
+            createdAt: usage.usage_date,
+            voucher: {
+                id: usage.voucher_id,
+                code: usage.code,
+                type: usage.type,
+                issuer_type: usage.issuer_type,
+                issuer_id: usage.issuer_id,
+                description: usage.description,
+                discount_unit: usage.discount_unit,
+                discount_value: usage.discount_value,
+                max_discount_value: usage.max_discount_value,
+                min_order_value: usage.min_order_value
+            }
+        }));
+
+        return res.status(200).json({ code: 0, message: 'Lấy voucher đã áp dụng của đơn hàng thành công', data: formattedVoucherUsages });
+    }
+    catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lấy voucher đã áp dụng của đơn hàng thất bại', error: error.message });
+    }
+}
+
+module.exports.getVoucherUsageByUserId = async (req, res) => {
+    try {
+        const { user_id } = req.query;
+
+        const query = `
+            SELECT 
+                vu.id,
+                vu.voucher_id,
+                vu.user_id,
+                vu.order_id,
+                vu.discount_amount,
+                vu."createdAt" as usage_date,
+                v.code,
+                v.type,
+                v.issuer_type,
+                v.issuer_id,
+                v.description,
+                v.discount_unit,
+                v.discount_value,
+                v.max_discount_value,
+                v.min_order_value
+            FROM voucher_usages vu
+            JOIN vouchers v ON vu.voucher_id = v.id
+            WHERE vu.user_id = :user_id AND vu.is_applied = :is_applied
+        `;
+
+        const voucherUsages = await sequelize.query(query, {
+            replacements: { user_id: user_id, is_applied: true },
+            type: sequelize.QueryTypes.SELECT
+        });
+
+        const formattedVoucherUsages = voucherUsages.map(usage => ({
+            id: usage.id,
+            voucher_id: usage.voucher_id,
+            user_id: usage.user_id,
+            order_id: usage.order_id,
+            discount_amount: usage.discount_amount,
+            createdAt: usage.usage_date,
+            voucher: {
+                id: usage.voucher_id,
+                code: usage.code,
+                type: usage.type,
+                issuer_type: usage.issuer_type,
+                issuer_id: usage.issuer_id,
+                description: usage.description,
+                discount_unit: usage.discount_unit,
+                discount_value: usage.discount_value,
+                max_discount_value: usage.max_discount_value,
+                min_order_value: usage.min_order_value
+            }
+        })); 
+
+        return res.status(200).json({ code: 0, message: 'Lấy voucher đã áp dụng của user thành công', data: formattedVoucherUsages });
+    }
+    catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lấy voucher đã áp dụng của user thất bại', error: error.message });
+    }
+}   
+
 module.exports.restoreVoucherUsage = async (req, res) => {
     try {
+        const { order_id } = req.params;
 
+        const [affectedRows, updatedRows] = await VoucherUsage.update(
+            { is_applied: false },
+            { where: { order_id }, returning: true }
+        );
+
+        return res.status(200).json({ code: 0, message: 'Hoàn lại voucher đã áp dụng thành công', updatedRows });
 
     }
     catch (error) {
@@ -462,18 +663,14 @@ module.exports.restoreVoucherUsage = async (req, res) => {
 //       seller_name: "ABC Store",
 //       total_quantity: 3,
 //       total_price: 30000,
-
 //       shipping_fee: 25000,
 //       original_items_total: 30000,
 //       original_shipping_fee: 25000,
-
 //       discount_amount_items: 0,
 //       discount_amount_shipping: 0,
-
 //       items_total_after_discount: 30000,
 //       shipping_fee_after_discount: 25000,
 //       final_total: 55000,
-
 //       order_voucher: {
 //         is_applied: false,
 //         code: "",
@@ -498,34 +695,8 @@ module.exports.restoreVoucherUsage = async (req, res) => {
 //         detail_voucher: null,
 //         discount_amount: 0
 //       },
-
 //       products: [
-//         {
-//           id: "13",
-//           user_id: "1",
-//           product_id: "1",
-//           product_name: "Kem bôi da Ketoconazol 2%",
-//           product_url_image: "https://res.cloudinary.com/dyacy1md1/image/upload/v1747463989/ecommerce-pharmacy/products/jrxob9mq3cj0wsruixl4.jpg",
-//           price: "11000.00",
-//           seller_id: "1",
-//           seller_name: "ABC Store",
-//           quantity: 2,
-//           createdAt: "2025-05-18T06:11:54.560Z",
-//           updatedAt: "2025-05-18T06:21:13.858Z"
-//         },
-//         {
-//           id: "3",
-//           user_id: "1",
-//           product_id: "2",
-//           product_name: "Bông y tế",
-//           product_url_image: "https://res.cloudinary.com/dyacy1md1/image/upload/v1747463989/ecommerce-pharmacy/products/jrxob9mq3cj0wsruixl4.jpg",
-//           price: "8000.00",
-//           seller_id: "1",
-//           seller_name: "ABC Store",
-//           quantity: 1,
-//           createdAt: "2025-05-18T04:25:07.651Z",
-//           updatedAt: "2025-05-18T04:25:07.651Z"
-//         }
+//         // danh sách sản phẩm
 //       ]
 //     },
 //     {
@@ -533,18 +704,14 @@ module.exports.restoreVoucherUsage = async (req, res) => {
 //       seller_name: "DEF Store",
 //       total_quantity: 2,
 //       total_price: 30000,
-
 //       shipping_fee: 25000,
 //       original_items_total: 30000,
 //       original_shipping_fee: 25000,
-
 //       discount_amount_items: 0,
 //       discount_amount_shipping: 0,
-
 //       items_total_after_discount: 30000,
 //       shipping_fee_after_discount: 25000,
 //       final_total: 55000, // 30000 + 25000
-
 //       order_voucher: {
 //         is_applied: false,
 //         code: "",
@@ -569,21 +736,8 @@ module.exports.restoreVoucherUsage = async (req, res) => {
 //         detail_voucher: null,
 //         discount_amount: 0
 //       },
-
 //       products: [
-//         {
-//           id: "6",
-//           user_id: "1",
-//           product_id: "3",
-//           product_name: "Túi chườm nóng",
-//           product_url_image: "https://res.cloudinary.com/dyacy1md1/image/upload/v1747463989/ecommerce-pharmacy/products/jrxob9mq3cj0wsruixl4.jpg",
-//           price: "15000.00",
-//           seller_id: "2",
-//           seller_name: "DEF Store",
-//           quantity: 2,
-//           createdAt: "2025-05-18T04:38:08.029Z",
-//           updatedAt: "2025-05-18T04:38:26.977Z"
-//         }
+//         // danh sách sản phẩm
 //       ]
 //     }
 //   ];
@@ -596,18 +750,14 @@ module.exports.restoreVoucherUsage = async (req, res) => {
 //       seller_name: "ABC Store",
 //       total_quantity: 3,
 //       total_price: 30000,
-
 //       shipping_fee: 25000,
 //       original_items_total: 30000,
 //       original_shipping_fee: 25000,
-
 //       discount_amount_items: 5000,
 //       discount_amount_shipping: 0,
-
 //       items_total_after_discount: 25000,
 //       shipping_fee_after_discount: 25000,
 //       final_total: 50000, // 25000 + 25000
-
 //       order_voucher: {
 //         is_applied: true,
 //         code: "qfQUTDuBYl",
@@ -648,34 +798,8 @@ module.exports.restoreVoucherUsage = async (req, res) => {
 //         detail_voucher: null,
 //         discount_amount: 0
 //       },
-
 //       products: [
-//         {
-//           id: "13",
-//           user_id: "1",
-//           product_id: "1",
-//           product_name: "Kem bôi da Ketoconazol 2%",
-//           product_url_image: "https://res.cloudinary.com/dyacy1md1/image/upload/v1747463989/ecommerce-pharmacy/products/jrxob9mq3cj0wsruixl4.jpg",
-//           price: "11000.00",
-//           seller_id: "1",
-//           seller_name: "ABC Store",
-//           quantity: 2,
-//           createdAt: "2025-05-18T06:11:54.560Z",
-//           updatedAt: "2025-05-18T06:21:13.858Z"
-//         },
-//         {
-//           id: "3",
-//           user_id: "1",
-//           product_id: "2",
-//           product_name: "Bông y tế",
-//           product_url_image: "https://res.cloudinary.com/dyacy1md1/image/upload/v1747463989/ecommerce-pharmacy/products/jrxob9mq3cj0wsruixl4.jpg",
-//           price: "8000.00",
-//           seller_id: "1",
-//           seller_name: "ABC Store",
-//           quantity: 1,
-//           createdAt: "2025-05-18T04:25:07.651Z",
-//           updatedAt: "2025-05-18T04:25:07.651Z"
-//         }
+//         // danh sách sản phẩm
 //       ]
 //     },
 //     {
@@ -683,18 +807,14 @@ module.exports.restoreVoucherUsage = async (req, res) => {
 //       seller_name: "DEF Store",
 //       total_quantity: 2,
 //       total_price: 30000,
-
 //       shipping_fee: 15000,
 //       original_items_total: 30000,
 //       original_shipping_fee: 15000,
-
 //       discount_amount_items: 0,
 //       discount_amount_shipping: 0,
-
 //       items_total_after_discount: 30000,
 //       shipping_fee_after_discount: 15000,
 //       final_total: 45000, // 30000 + 15000
-
 //       order_voucher: {
 //         is_applied: false,
 //         code: "",
@@ -719,27 +839,14 @@ module.exports.restoreVoucherUsage = async (req, res) => {
 //         detail_voucher: null,
 //         discount_amount: 0
 //       },
-
 //       products: [
-//         {
-//           id: "6",
-//           user_id: "1",
-//           product_id: "3",
-//           product_name: "Túi chườm nóng",
-//           product_url_image: "https://res.cloudinary.com/dyacy1md1/image/upload/v1747463989/ecommerce-pharmacy/products/jrxob9mq3cj0wsruixl4.jpg",
-//           price: "15000.00",
-//           seller_id: "2",
-//           seller_name: "DEF Store",
-//           quantity: 2,
-//           createdAt: "2025-05-18T04:38:08.029Z",
-//           updatedAt: "2025-05-18T04:38:26.977Z"
-//         }
+//         // danh sách sản phẩm
 //       ]
 //     }
 // ];
+
 // const cartSummary = {
 //     total_quantity: 5,            // Tổng số lượng sản phẩm trong giỏ của tất cả cửa hàng
-
 //     stores_original_items_total: 60000,         // Tổng tiền hàng gốc của tất cả shop trước khi giảm giá
 //     stores_original_shipping_fee: 40000,        // Tổng phí ship gốc của tất cả shop trước khi giảm giá
 //     stores_discount_amount_items: 5000,        // Tổng giảm giá từ voucher order các shop (nếu có)
@@ -747,7 +854,6 @@ module.exports.restoreVoucherUsage = async (req, res) => {
 //     stores_items_total_after_discount: 55000,   // Tổng tiền hàng sau giảm của tất cả shop
 //     stores_shipping_fee_after_discount: 40000,  // Tổng phí ship sau giảm của tất cả shop (nếu có)
 //     stores_final_total: 95000,                 // Tổng tiền đơn hàng cuối cùng của tất cả shop
-
 //     platform_order_voucher: {
 //         is_applied: false,
 //         code: "",
@@ -758,11 +864,9 @@ module.exports.restoreVoucherUsage = async (req, res) => {
 //         code: "",
 //         detail_voucher: null
 //     },
-
 //     platform_discount_amount_items: 0,        // Tổng giảm giá từ voucher order của sàn
 //     platform_discount_amount_shipping: 0,         // Tổng giảm giá từ voucher freeship của sàn
 //     items_total_after_discount: 55000,   // Tổng tiền hàng sau khi dùng voucher của sàn (stores_items_total_after_discount - platform_discount_amount_items)
 //     shipping_fee_after_discount: 40000,  // Tổng phí ship sau khi dùng voucher của sàn (stores_shipping_fee_after_discount - platform_discount_amount_shipping)
 //     final_total_after_platform_voucher: 95000    // Tổng đơn hàng cuối cùng sau voucher sàn (items_total_after_discount + shipping_fee_after_discount)
-
 // };

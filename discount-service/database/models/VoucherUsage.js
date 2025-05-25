@@ -28,11 +28,6 @@ const VoucherUsage = sequelize.define('VoucherUsage', {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
     },
-    usage_date: {
-        type: DataTypes.DATE,
-        allowNull: false,
-        defaultValue: DataTypes.NOW,
-    },
     is_applied: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
