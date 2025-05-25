@@ -129,11 +129,10 @@ module.exports.addProductToCart = async (req, res) => {
     }
 }
 
-module.exports.removeProductFromCart = async (req, res) => {
+module.exports.reduceProductInCart = async (req, res) => {
     try {
 
         const { id } = req.params
-        const { remove_all } = req.query
 
         const errors = [];
 
@@ -149,21 +148,41 @@ module.exports.removeProductFromCart = async (req, res) => {
             return res.status(404).json({ code: 1, message: 'Sản phẩm không tồn tại trong giỏ hàng' });
         }
 
-        if (remove_all === true || remove_all === 'true') {
+        if (cartItem.quantity > 1) {
+            cartItem.quantity -= 1;
+            await cartItem.save();
+        } else {
             cartItem.quantity = 0;
             await cartItem.destroy();
         }
-        else {
-            if (cartItem.quantity > 1) {
-                cartItem.quantity -= 1;
-                await cartItem.save();
-            } else {
-                cartItem.quantity = 0;
-                await cartItem.destroy();
-            }
+
+        return res.status(200).json({ code: 0, message: 'Giảm số lượng sản phẩm trong giỏ hàng thành công', data: cartItem });
+    }
+    catch (error) {
+        return res.status(500).json({ code: 2, message: 'Giảm số lượng sản phẩm trong giỏ hàng thất bại', error: error.message });
+    }
+}
+
+module.exports.removeManyProductFromCart = async (req, res) => {
+    try {
+        const { user_id,product_ids } = req.body
+
+        const errors = [];
+
+        if (!user_id || user_id <= 0) errors.push('user_id cần cung cấp');
+        if (!product_ids || !Array.isArray(product_ids) || product_ids.length === 0) errors.push('product_ids cần cung cấp');
+
+        if (errors.length > 0) {
+            return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
 
-        return res.status(200).json({ code: 0, message: 'Xóa sản phẩm khỏi giỏ hàng thành công', data: cartItem });
+        const deletePromises = product_ids.map(product_id => 
+            CartItem.destroy({ where: { user_id, product_id } })
+        );
+
+        await Promise.all(deletePromises);
+
+        return res.status(200).json({ code: 0, message: 'Xóa sản phẩm khỏi giỏ hàng thành công', data: product_ids });
     }
     catch (error) {
         return res.status(500).json({ code: 2, message: 'Xóa sản phẩm khỏi giỏ hàng thất bại', error: error.message });
