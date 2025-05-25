@@ -4,14 +4,6 @@ module.exports.reportProducts = async (req, res) => {
     try {
         const { startDate, endDate, seller_id } = req.query;
 
-        const conditions = {
-            status: 'completed'
-        }
-
-        if (seller_id) {
-            conditions.seller_id = seller_id
-        }
-
         let selectedStartDate = undefined
         let selectedEndDate = undefined
 
