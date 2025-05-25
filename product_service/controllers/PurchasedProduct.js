@@ -1,4 +1,6 @@
 const PurchasedProduct = require('../database/models/PurchasedProduct')
+const Product = require('../database/models/Product')
+const { Sequelize } = require('sequelize');
 
 module.exports.addPurchasedProduct = async (req, res) => {
     try {
@@ -25,6 +27,20 @@ module.exports.addPurchasedProduct = async (req, res) => {
         }));
 
         const purchasedProducts = await PurchasedProduct.bulkCreate(records);
+
+        // cập nhật kho hàng đối với các sản phẩm vừa mua, giảm số lượng sản phẩm trong kho bằng số lượng đã mua
+        for (const product of purchasedProducts) {
+            await Product.update({
+                stock: Sequelize.literal(`
+                    CASE 
+                        WHEN stock - ${product.quantity} >= 0 THEN stock - ${product.quantity}
+                        ELSE 0
+                    END
+                `)
+            }, {
+                where: { id: product.product_id }
+            });
+        }
 
         return res.status(200).json({ code: 0, message: 'Thêm sản phẩm đã mua thành công', data: purchasedProducts });
     }
@@ -74,15 +90,28 @@ module.exports.deletePurchasedProduct = async (req, res) => {
             return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
 
-        const deletedCount = await PurchasedProduct.destroy({
+        const purchasedProducts = await PurchasedProduct.findAll({
             where: { order_id }
         });
 
-        if(deletedCount === 0) {
+        if(purchasedProducts.length <= 0) {
             return res.status(404).json({ code: 1, message: 'Sản phẩm đã mua không tồn tại' });
         }
 
-        return res.status(200).json({ code: 0, message: 'Xóa sản phẩm đã mua thành công', data: deletedCount });
+        // cập nhật kho hàng đối với các sản phẩm đã mua nhưng bị hủy đơn => tăng lại số lượng sản phẩm trong kho bằng số lượng bị hủy
+        for (const product of purchasedProducts) {
+            await Product.update({
+                stock: Sequelize.literal(`stock + ${product.quantity}`)
+            }, {
+                where: { id: product.product_id }
+            });
+        }
+
+        await PurchasedProduct.destroy({
+            where: { order_id }
+        });
+
+        return res.status(200).json({ code: 0, message: 'Xóa sản phẩm đã mua thành công', data: purchasedProducts });
     }
     catch (error) {
         return res.status(500).json({ code: 2, message: 'Xóa sản phẩm đã mua thất bại', error: error.message });
