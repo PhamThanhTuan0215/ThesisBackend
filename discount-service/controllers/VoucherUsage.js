@@ -3,7 +3,7 @@ const VoucherUsage = require('../database/models/VoucherUsage')
 const { Op } = require('sequelize')
 const sequelize = require('../database/sequelize');
 
-module.exports.getPlatformVouchersAvailable = async (req, res) => {
+module.exports.getPlatformAvailableVouchers = async (req, res) => {
     try {
         const { user_id } = req.query;
         const { type } = req.query;
@@ -44,19 +44,29 @@ module.exports.getPlatformVouchersAvailable = async (req, res) => {
 
         const vouchers = await Voucher.findAll({
             where: conditions,
+            attributes: ['id', 'code', 'type', 'description', 'issuer_id', 'discount_value', 'discount_unit', 'min_order_value', 'max_discount_value', 'end_date'],
             order: [
                 ['updatedAt', 'DESC']
             ]
         });
 
-        return res.status(200).json({ code: 0, message: 'Lấy danh sách voucher khả dụng của sàn thành công', data: vouchers });
+        const vouchersByType = {
+            order: [],
+            freeship: []
+        };
+
+        vouchers.forEach(voucher => {
+            vouchersByType[voucher.type].push(voucher);
+        });
+
+        return res.status(200).json({ code: 0, message: 'Lấy danh sách voucher khả dụng của sàn thành công', data: vouchersByType });
     }
     catch (error) {
         return res.status(500).json({ code: 2, message: 'Lấy danh sách voucher khả dụng của sàn thất bại', error: error.message });
     }
 }
 
-module.exports.getShopVouchersAvailable = async (req, res) => {
+module.exports.getShopAvailableVouchers = async (req, res) => {
     try {
         const { user_id } = req.query;
         const { type } = req.query;
@@ -100,15 +110,101 @@ module.exports.getShopVouchersAvailable = async (req, res) => {
 
         const vouchers = await Voucher.findAll({
             where: conditions,
+            attributes: ['id', 'code', 'type', 'description', 'issuer_id', 'discount_value', 'discount_unit', 'min_order_value', 'max_discount_value', 'end_date'],
             order: [
                 ['updatedAt', 'DESC']
             ]
         });
 
-        return res.status(200).json({ code: 0, message: 'Lấy danh sách voucher khả dụng của cửa hàng thành công', data: vouchers });
+        const vouchersByType = {
+            order: [],
+            freeship: []
+        };
+
+        vouchers.forEach(voucher => {
+            vouchersByType[voucher.type].push(voucher);
+        });
+
+        return res.status(200).json({ code: 0, message: 'Lấy danh sách voucher khả dụng của cửa hàng thành công', data: vouchersByType });
     }
     catch (error) {
         return res.status(500).json({ code: 2, message: 'Lấy danh sách voucher khả dụng của cửa hàng thất bại', error: error.message });
+    }
+}
+
+module.exports.getAvailableVouchersOfManyShops = async (req, res) => {
+    try {
+        const { user_id } = req.query;
+        const { type } = req.query;
+        const { list_seller_ids } = req.body;
+
+        const errors = [];
+
+        if (!user_id || user_id <= 0) errors.push('user_id cần cung cấp');
+        if (!list_seller_ids || !Array.isArray(list_seller_ids)) errors.push('list_seller_ids cần cung cấp');
+
+        if (errors.length > 0) {
+            return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
+        }
+
+        const voucherUsages = await VoucherUsage.findAll({
+            where: {
+                user_id: user_id,
+                is_applied: true
+            },
+            attributes: ['voucher_id']
+        });
+
+        const voucherIds = voucherUsages.map(voucherUsage => voucherUsage.voucher_id);
+
+        const conditions = {
+            issuer_type: 'shop',
+            start_date: {
+                [Op.lte]: new Date()
+            },
+            end_date: {
+                [Op.gte]: new Date()
+            },
+            is_active: true,
+            id: {
+                [Op.notIn]: voucherIds
+            },
+            issuer_id: {
+                [Op.in]: list_seller_ids
+            }
+        }
+
+        if (type) conditions.type = type;
+
+        const vouchers = await Voucher.findAll({
+            where: conditions,
+            attributes: ['id', 'code', 'type', 'description', 'issuer_id', 'discount_value', 'discount_unit', 'min_order_value', 'max_discount_value', 'end_date'],
+            order: [
+                ['updatedAt', 'DESC']
+            ]
+        });
+
+        const vouchersByShop = {};
+
+        list_seller_ids.forEach(seller_id => {
+            vouchersByShop[seller_id] = {
+                order: [],
+                freeship: []
+            };
+        });
+
+        vouchers.forEach(voucher => {
+            const seller_id = voucher.issuer_id;
+            if(vouchersByShop[seller_id]) {
+                vouchersByShop[seller_id][ voucher.type].push(voucher);
+            }
+        });
+
+        return res.status(200).json({ code: 0, message: 'Lấy danh sách voucher khả dụng của các cửa hàng thành công', data: vouchersByShop });
+        
+    }
+    catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lấy danh sách voucher khả dụng của các cửa hàng thất bại', error: error.message });
     }
 }
 
@@ -116,38 +212,22 @@ module.exports.applyPlatformVoucher = async (req, res) => {
 
     try {
         const { apply_type } = req.query;
-        const { user_id, stores, cartSummary } = req.body;
+        const { user_id, stores, voucher_code } = req.body;
 
         const errors = [];
 
         if (!apply_type || apply_type === '') errors.push('apply_type cần cung cấp');
         if (!user_id || user_id <= 0) errors.push('user_id cần cung cấp');
         if (!stores || !Array.isArray(stores)) errors.push('stores cần cung cấp');
-        if (!cartSummary) errors.push('cartSummary cần cung cấp');
-        if (cartSummary && typeof cartSummary !== 'object') errors.push('cartSummary phải là đối tượng JSON');
+        if (!voucher_code || voucher_code === '') errors.push('voucher_code cần cung cấp');
 
         if (errors.length > 0) {
             return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
 
-        let code = '';
-
-        if (apply_type === 'order') {
-            code = cartSummary.platform_order_voucher.code;
-        }
-        else if (apply_type === 'freeship') {
-            // Kiểm tra để chắc chắn rằng không có voucher freeship nào được áp dụng trong các shop
-            const hasFreeshipVoucher = stores.some(store => store.freeship_voucher.is_applied);
-            if (hasFreeshipVoucher) {
-                return res.status(400).json({ code: 1, message: 'Không thể áp dụng voucher freeship của sàn khi đã áp dụng voucher freeship của cửa hàng' });
-            }
-
-            code = cartSummary.platform_freeship_voucher.code;
-        }
-
         const voucher = await Voucher.findOne({
             where: {
-                code: code,
+                code: voucher_code,
                 type: apply_type,
                 issuer_type: 'platform',
                 start_date: {
@@ -156,6 +236,7 @@ module.exports.applyPlatformVoucher = async (req, res) => {
                 end_date: {
                     [Op.gte]: new Date()
                 },
+                is_active: true
             }
         });
 
@@ -177,39 +258,42 @@ module.exports.applyPlatformVoucher = async (req, res) => {
             return res.status(400).json({ code: 1, message: 'Bạn đã sử dụng voucher này' });
         }
 
-        if (voucher.min_order_value && cartSummary.items_total_after_discount < voucher.min_order_value) {
-            return res.status(400).json({ code: 1, message: 'Đơn hàng không đạt điều kiện sử dụng voucher', note: `Mua thêm ${voucher.min_order_value - cartSummary.items_total_after_discount}đ để sử dụng voucher` });
+        const items_total_before_platform_discount = stores.reduce((total, store) => total + store.items_total_after_discount, 0);
+        const shipping_fee_before_platform_discount = stores.reduce((total, store) => total + store.shipping_fee_after_discount, 0);
+
+        if (voucher.min_order_value && items_total_before_platform_discount < voucher.min_order_value) {
+            return res.status(400).json({ code: 1, message: 'Đơn hàng không đạt điều kiện sử dụng voucher', note: `Mua thêm ${voucher.min_order_value - items_total_before_platform_discount}đ để sử dụng voucher` });
         }
 
-        let platform_discount_amount_items = 0;
-        let platform_discount_amount_shipping = 0;
+        let discount_amount_items_platform = 0;
+        let discount_amount_shipping_platform = 0;
 
-        let items_total_after_discount = cartSummary.stores_items_total_after_discount;
-        let shipping_fee_after_discount = cartSummary.stores_shipping_fee_after_discount;
+        let items_total_after_platform_discount = items_total_before_platform_discount;
+        let shipping_fee_after_platform_discount = shipping_fee_before_platform_discount;
 
         if (voucher.type === 'order') {
 
             const discount_value = parseFloat(voucher.discount_value);
 
             if (voucher.discount_unit === 'amount') {
-                platform_discount_amount_items = discount_value;
+                discount_amount_items_platform = discount_value;
             }
             else if (voucher.discount_unit === 'percent') {
-                platform_discount_amount_items = cartSummary.stores_items_total_after_discount * discount_value / 100;
+                discount_amount_items_platform = items_total_before_platform_discount * discount_value / 100;
             }
 
-            if (voucher.max_discount_value && platform_discount_amount_items > parseFloat(voucher.max_discount_value)) {
-                platform_discount_amount_items = parseFloat(voucher.max_discount_value);
+            if (voucher.max_discount_value && discount_amount_items_platform > parseFloat(voucher.max_discount_value)) {
+                discount_amount_items_platform = parseFloat(voucher.max_discount_value);
             }
 
-            if (platform_discount_amount_items > cartSummary.stores_items_total_after_discount) {
-                platform_discount_amount_items = cartSummary.stores_items_total_after_discount;
+            if (discount_amount_items_platform > items_total_before_platform_discount) {
+                discount_amount_items_platform = items_total_before_platform_discount;
             }
 
-            items_total_after_discount = cartSummary.stores_items_total_after_discount - platform_discount_amount_items;
+            items_total_after_platform_discount = items_total_before_platform_discount - discount_amount_items_platform;
 
-            if (items_total_after_discount < 0) {
-                items_total_after_discount = 0;
+            if (items_total_after_platform_discount < 0) {
+                items_total_after_platform_discount = 0;
             }
 
         }
@@ -218,63 +302,60 @@ module.exports.applyPlatformVoucher = async (req, res) => {
             const discount_value = parseFloat(voucher.discount_value);
 
             if (voucher.discount_unit === 'amount') {
-                platform_discount_amount_shipping = discount_value;
+                discount_amount_shipping_platform = discount_value;
             }
             else if (voucher.discount_unit === 'percent') {
-                platform_discount_amount_shipping = cartSummary.stores_shipping_fee_after_discount * discount_value / 100;
+                discount_amount_shipping_platform = shipping_fee_before_platform_discount * discount_value / 100;
             }
 
-            if (voucher.max_discount_value && platform_discount_amount_shipping > parseFloat(voucher.max_discount_value)) {
-                platform_discount_amount_shipping = parseFloat(voucher.max_discount_value);
+            if (voucher.max_discount_value && discount_amount_shipping_platform > parseFloat(voucher.max_discount_value)) {
+                discount_amount_shipping_platform = parseFloat(voucher.max_discount_value);
             }
 
-            if (platform_discount_amount_shipping > cartSummary.stores_shipping_fee_after_discount) {
-                platform_discount_amount_shipping = cartSummary.stores_shipping_fee_after_discount;
+            if (discount_amount_shipping_platform > shipping_fee_before_platform_discount) {
+                discount_amount_shipping_platform = shipping_fee_before_platform_discount;
             }
 
-            shipping_fee_after_discount = cartSummary.stores_shipping_fee_after_discount - platform_discount_amount_shipping;
+            shipping_fee_after_platform_discount = shipping_fee_before_platform_discount - discount_amount_shipping_platform;
 
-            if (shipping_fee_after_discount < 0) {
-                shipping_fee_after_discount = 0;
+            if (shipping_fee_after_platform_discount < 0) {
+                shipping_fee_after_platform_discount = 0;
             }
         }
 
-        const final_total_after_platform_voucher = items_total_after_discount + shipping_fee_after_discount;
-
         // Tạo thêm thông tin của mỗi shop về việc chịu ảnh hưởng của voucher sàn, trong đó chứa thông tin voucher sàn cùng tỉ lệ phân chia giá trị voucher sàn cho từng shop
-        const platform_voucher_to_stores = stores.map(store => {
+        const platform_voucher_allocates_to_stores = stores.map(store => {
             const store_items_total = store.items_total_after_discount || 0;
             const store_shipping_fee = store.shipping_fee_after_discount || 0;
 
-            let discount_amount_each_store = 0; // giá trị voucher sàn phân chia cho từng shop
+            let allocated_discount_amount = 0; // giá trị voucher sàn phân chia cho từng shop
             let base_total = 0; // tổng tiền hàng hoặc phí ship sau khi áp dụng voucher của tất cả các shop (trước khi áp dụng voucher sàn)
 
             if (voucher.type === 'order') {
-                base_total = cartSummary.stores_items_total_after_discount;
-                discount_amount_each_store = base_total > 0 ? (store_items_total / base_total) * platform_discount_amount_items : 0;
+                base_total = items_total_before_platform_discount;
+                allocated_discount_amount = base_total > 0 ? (store_items_total / base_total) * discount_amount_items_platform : 0;
             } else if (voucher.type === 'freeship') {
-                base_total = cartSummary.stores_shipping_fee_after_discount;
-                discount_amount_each_store = base_total > 0 ? (store_shipping_fee / base_total) * platform_discount_amount_shipping : 0;
+                base_total = shipping_fee_before_platform_discount;
+                allocated_discount_amount = base_total > 0 ? (store_shipping_fee / base_total) * discount_amount_shipping_platform : 0;
             }
 
             return {
                 store_id: store.seller_id,
                 voucher_id: voucher.id,
                 type: voucher.type,
-                allocated_discount_amount: Math.round(discount_amount_each_store) // làm tròn cho dễ quản lý
+                allocated_discount_amount: Math.round(allocated_discount_amount) // làm tròn cho dễ quản lý
             };
         })
 
         const data = {
-            voucher: voucher,
-            original_items_total: cartSummary.stores_items_total_after_discount,
-            original_shipping_fee: cartSummary.stores_shipping_fee_after_discount,
-            platform_discount_amount_items,
-            platform_discount_amount_shipping,
-            items_total_after_discount,
-            shipping_fee_after_discount,
-            final_total_after_platform_voucher,
-            platform_voucher_to_stores
+            items_total_before_platform_discount,
+            shipping_fee_before_platform_discount,
+            discount_amount_items_platform,
+            discount_amount_shipping_platform,
+            items_total_after_platform_discount,
+            shipping_fee_after_platform_discount,
+            platform_voucher_allocates_to_stores,
+            voucher
         }
 
         return res.status(200).json({ code: 0, message: 'Áp dụng voucher của sàn thành công', data });
@@ -290,35 +371,24 @@ module.exports.applyShopVoucher = async (req, res) => {
     try {
         const { apply_type } = req.query;
         const { seller_id } = req.params;
-        const { user_id, products, shipping_fee, order_voucher, freeship_voucher } = req.body;
+        const { user_id, original_items_total, original_shipping_fee, voucher_code } = req.body;
 
         const errors = [];
 
         if (!apply_type || apply_type === '') errors.push('apply_type cần cung cấp');
         if (!user_id || user_id <= 0) errors.push('user_id cần cung cấp');
-        if (!products || !Array.isArray(products)) errors.push('products cần cung cấp');
-        if (!shipping_fee || shipping_fee <= 0) errors.push('shipping_fee cần cung cấp'); if (!shipping_fee || isNaN(shipping_fee) || shipping_fee < 0) errors.push('shipping_fee phải là số và lơn hơn hoặc bằng 0');
-        if (!order_voucher) errors.push('order_voucher cần cung cấp');
-        if (order_voucher && typeof order_voucher !== 'object') errors.push('order_voucher phải là đối tượng JSON');
-        if (!freeship_voucher) errors.push('freeship_voucher cần cung cấp');
-        if (freeship_voucher && typeof freeship_voucher !== 'object') errors.push('freeship_voucher phải là đối tượng JSON');
+        if (!seller_id || seller_id <= 0) errors.push('seller_id cần cung cấp');
+        if (!original_items_total || isNaN(original_items_total) || original_items_total < 0) errors.push('original_items_total phải là số và lơn hơn hoặc bằng 0');
+        if (!original_shipping_fee || isNaN(original_shipping_fee) || original_shipping_fee < 0) errors.push('original_shipping_fee phải là số và lơn hơn hoặc bằng 0');
+        if (!voucher_code || voucher_code === '') errors.push('voucher_code cần cung cấp');
 
         if (errors.length > 0) {
             return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
 
-        let code = '';
-
-        if (apply_type === 'order') {
-            code = order_voucher.code;
-        }
-        else if (apply_type === 'freeship') {
-            code = freeship_voucher.code;
-        }
-
         const voucher = await Voucher.findOne({
             where: {
-                code: code,
+                code: voucher_code,
                 type: apply_type,
                 issuer_type: 'shop',
                 issuer_id: seller_id,
@@ -350,14 +420,9 @@ module.exports.applyShopVoucher = async (req, res) => {
             return res.status(400).json({ code: 1, message: 'Bạn đã sử dụng voucher này' });
         }
 
-        const total_price = products.reduce((acc, product) => acc + product.price * product.quantity, 0);
-
-        if (voucher.min_order_value && total_price < voucher.min_order_value) {
-            return res.status(400).json({ code: 1, message: 'Đơn hàng không đạt điều kiện sử dụng voucher', note: `Mua thêm ${voucher.min_order_value - total_price}đ để sử dụng voucher` });
+        if (voucher.min_order_value && original_items_total < voucher.min_order_value) {
+            return res.status(400).json({ code: 1, message: 'Đơn hàng không đạt điều kiện sử dụng voucher', note: `Mua thêm ${voucher.min_order_value - original_items_total}đ để sử dụng voucher` });
         }
-
-        const original_items_total = total_price;
-        const original_shipping_fee = shipping_fee;
 
         let discount_amount_items = 0;
         let discount_amount_shipping = 0;
@@ -416,8 +481,6 @@ module.exports.applyShopVoucher = async (req, res) => {
             }
         }
 
-        const final_total = items_total_after_discount + shipping_fee_after_discount;
-
         const data = {
             voucher,
             original_items_total,
@@ -426,7 +489,6 @@ module.exports.applyShopVoucher = async (req, res) => {
             discount_amount_shipping,
             items_total_after_discount,
             shipping_fee_after_discount,
-            final_total
         }
 
         return res.status(200).json({ code: 0, message: 'Áp dụng voucher của cửa hàng thành công', data });
@@ -864,9 +926,20 @@ module.exports.restoreVoucherUsage = async (req, res) => {
 //         code: "",
 //         detail_voucher: null
 //     },
-//     platform_discount_amount_items: 0,        // Tổng giảm giá từ voucher order của sàn
-//     platform_discount_amount_shipping: 0,         // Tổng giảm giá từ voucher freeship của sàn
-//     items_total_after_discount: 55000,   // Tổng tiền hàng sau khi dùng voucher của sàn (stores_items_total_after_discount - platform_discount_amount_items)
-//     shipping_fee_after_discount: 40000,  // Tổng phí ship sau khi dùng voucher của sàn (stores_shipping_fee_after_discount - platform_discount_amount_shipping)
+//     discount_amount_items_platform: 0,        // Tổng giảm giá từ voucher order của sàn
+//     discount_amount_shipping_platform: 0,         // Tổng giảm giá từ voucher freeship của sàn
+//     items_total_after_discount: 55000,   // Tổng tiền hàng sau khi dùng voucher của sàn (stores_items_total_after_discount - discount_amount_items_platform)
+//     shipping_fee_after_discount: 40000,  // Tổng phí ship sau khi dùng voucher của sàn (stores_shipping_fee_after_discount - discount_amount_shipping_platform)
 //     final_total_after_platform_voucher: 95000    // Tổng đơn hàng cuối cùng sau voucher sàn (items_total_after_discount + shipping_fee_after_discount)
 // };
+
+// Thông tin tại mỗi đơn hàng của shop trước khi thanh toán
+// - Tổng tiền hàng gốc
+// - Phí vận chuyển gốc
+// - Giảm giá tiền hàng từ voucher shop
+// - Giảm giá tiền vận chuyển từ voucher shop
+// - Tổng tiền hàng sau voucher của shop
+// - Phí vận chuyển sau voucher của shop
+// - Giảm giả tiền hàng từ voucher sàn (trong trường hợp có nhiều shop thì mỗi shop chịu 1 phần)
+// - Giảm giá tiền vận chuyển từ voucher sàn (trong trường hợp có nhiều shop thì mỗi shop chịu 1 phần)
+// - Tổng tiền đơn hàng (tiền đơn hàng cuối cùng tại mỗi shop)

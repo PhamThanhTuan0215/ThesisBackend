@@ -3,9 +3,11 @@ const Router = express.Router()
 
 const Controller = require('../controllers/VoucherUsage')
 
-Router.get('/platform', Controller.getPlatformVouchersAvailable) //  ĐANG DÙNG USER_ID TRONG QUERY
+Router.get('/platform', Controller.getPlatformAvailableVouchers) //  ĐANG DÙNG USER_ID TRONG QUERY
 
-Router.get('/shop/:seller_id', Controller.getShopVouchersAvailable) // đang dùng user_id trong query
+Router.get('/shop/:seller_id', Controller.getShopAvailableVouchers) // ĐANG DÙNG USER_ID TRONG QUERY
+
+Router.post('/shops', Controller.getAvailableVouchersOfManyShops) // ĐANG DÙNG USER_ID TRONG QUERY. lấy danh sách voucher khả dụng của nhiều nhà bán cùng lúc
 
 Router.post('/apply', Controller.applyPlatformVoucher) // áp dụng voucher của sàn
 
