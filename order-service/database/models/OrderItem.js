@@ -1,6 +1,8 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../sequelize');
 
+require('./Order');
+
 const OrderItem = sequelize.define('OrderItem', {
     id: {
         type: DataTypes.BIGINT,
@@ -10,6 +12,12 @@ const OrderItem = sequelize.define('OrderItem', {
     order_id: {
         type: DataTypes.BIGINT,
         allowNull: false,
+        references: {
+            model: 'orders',
+            key: 'id'
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'CASCADE'
     },
     product_id: {
         type: DataTypes.BIGINT,
@@ -29,7 +37,7 @@ const OrderItem = sequelize.define('OrderItem', {
         allowNull: false,
         defaultValue: 1
     },
-    product_image: {
+    product_url_image: {
         type: DataTypes.STRING,
         allowNull: false
     },

@@ -11,10 +11,12 @@ Router.put('/:id', Controller.updateOrder)
 
 Router.delete('/:id', Controller.cancelOrder)
 
-Router.get('/:id', Controller.getOrderById)
-
-Router.get('/user/:user_id', Controller.getOrderByUserId)
+Router.get('/user', Controller.getOrderByUserId) // ĐANG DÙNG USER_ID TRONG QUERY
 
 Router.get('/shop/:seller_id', Controller.getOrderBySellerId)
+
+Router.get('/:id', Controller.getOrderById)
+
+Router.get('/details/:id', Controller.getOrderDetails)
 
 module.exports = Router

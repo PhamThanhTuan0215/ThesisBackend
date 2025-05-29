@@ -60,24 +60,38 @@ const Order = sequelize.define('Order', {
         allowNull: false,
         defaultValue: 'COD',
         validate: {
-            isIn: [['COD', 'VNPAY', 'MOMO']],
+            isIn: {
+                args: [['COD', 'VNPAY', 'MOMO']],
+                msg: "payment_method phải là COD, VNPAY hoặc MOMO"
+            }
         },
     },
     payment_status: {
         type: DataTypes.STRING,
         allowNull: false,
-        defaultValue: 'PENDING',
+        defaultValue: 'pending',
         validate: {
-            isIn: [['PENDING', 'PAID', 'CANCELLED']],
+            isIn: {
+                args: [['pending', 'paid']],
+                msg: "payment_status phải là pending, paid hoặc cancelled"
+            }
         },
     },
     order_status: {
         type: DataTypes.STRING,
         allowNull: false,
-        defaultValue: 'PENDING',
+        defaultValue: 'pending',
         validate: {
-            isIn: [['PENDING', 'PROCESSING', 'SHIPPING', 'DELIVERED', 'CANCELLED']],
+            isIn: {
+                args: [['pending', 'processing', 'shipping', 'delivered', 'cancelled']],
+                msg: "order_status phải là pending, processing, shipping, delivered hoặc cancelled"
+            }
         },
+    },
+    is_completed: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
     },
     payment_id: {
         type: DataTypes.BIGINT,
@@ -89,6 +103,11 @@ const Order = sequelize.define('Order', {
     } // id vận chuyển
 }, {
     tableName: 'orders'
+});
+
+// trước khi lưu (thêm hoặc cập nhât) thì thiết lập is_completed = true nếu payment_status = paid và order_status = delivered
+Order.beforeSave((order, options) => {
+    order.is_completed = (order.payment_status === 'paid' && order.order_status === 'delivered');
 });
 
 module.exports = Order;
