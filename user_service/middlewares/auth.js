@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const TokenController = require('../controllers/Token');
-const UserRole = require('../database/models/UserRole');
+const User = require('../database/models/User');
 
 module.exports.authenticateToken = async (req, res, next) => {
     try {
@@ -38,15 +38,14 @@ module.exports.authenticateToken = async (req, res, next) => {
                 }
             }
 
-            // Lấy role của user
-            const userRole = await UserRole.findOne({
-                where: { user_id: decoded.id }
-            });
+            // Lấy role của user từ model User
+            const user = await User.findOne({ where: { id: decoded.id } });
+            const role = user ? user.role : 'customer';
 
             // Lưu thông tin user vào request
             req.user = {
                 id: decoded.id,
-                role: userRole ? userRole.role : 'user',
+                role: role,
                 jti: decoded.jti
             };
 
@@ -73,9 +72,9 @@ module.exports.authenticateToken = async (req, res, next) => {
     }
 };
 
-// Middleware kiểm tra role admin
+// Middleware kiểm tra role admin hệ thống hoặc staff hệ thống
 module.exports.requireAdmin = (req, res, next) => {
-    if (req.user && req.user.role === 'admin') {
+    if (req.user && ['admin_system', 'staff_system'].includes(req.user.role)) {
         next();
     } else {
         return res.status(403).json({
@@ -95,4 +94,32 @@ module.exports.requireUser = (req, res, next) => {
             message: 'Bạn cần đăng nhập để thực hiện hành động này'
         });
     }
+};
+
+// Middleware kiểm tra role cụ thể
+module.exports.requireRole = (role) => {
+    return (req, res, next) => {
+        if (req.user && req.user.role === role) {
+            next();
+        } else {
+            return res.status(403).json({
+                code: 1,
+                message: 'Bạn không có quyền thực hiện hành động này'
+            });
+        }
+    };
+};
+
+// Middleware kiểm tra nhiều role
+module.exports.requireRoles = (roles) => {
+    return (req, res, next) => {
+        if (req.user && roles.includes(req.user.role)) {
+            next();
+        } else {
+            return res.status(403).json({
+                code: 1,
+                message: 'Bạn không có quyền thực hiện hành động này'
+            });
+        }
+    };
 }; 

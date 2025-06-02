@@ -1,5 +1,5 @@
 const User = require('../database/models/User');
-const Token = require('../database/models/Token');
+const TokenController = require('./Token');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const sendMail = require("../configs/sendMail.js")
@@ -22,13 +22,11 @@ module.exports.uploadCustom = upload.fields([
     { name: 'avatar', maxCount: 1 }
 ]);
 
-module.exports.getAllUsers = async (req, res) => {
+module.exports.getAllCustomers = async (req, res) => {
     try {
         const users = await User.findAll({
             where: {
-                role: {
-                    [Op.ne]: 'admin'
-                }
+                role: 'customer'
             }
         });
         return res.status(200).json({ code: 0, message: 'Lấy danh sách người dùng thành công', data: users });
@@ -108,7 +106,6 @@ module.exports.login = async (req, res) => {
         );
 
         // Store refresh token in database
-        const TokenController = require('./Token');
         await TokenController.createToken(
             user.id,
             jti,
@@ -295,3 +292,40 @@ module.exports.changePassword = async (req, res) => {
         return res.status(500).json({ code: 2, message: 'Lỗi server', error: error.message });
     }
 }
+
+module.exports.updateAvatar = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        if (!req.file) {
+            return res.status(400).json({ code: 1, message: 'Vui lòng chọn ảnh để cập nhật avatar' });
+        }
+
+        // Upload file lên Cloudinary
+        const [result] = await uploadFiles([req.file], folderPathUpload);
+        if (!result || !result.secure_url) {
+            return res.status(500).json({ code: 2, message: 'Lỗi upload ảnh lên Cloudinary' });
+        }
+
+        // Cập nhật avatar cho user
+        const user = await User.findOne({ where: { id: userId } });
+        if (!user) {
+            return res.status(404).json({ code: 1, message: 'Không tìm thấy người dùng' });
+        }
+
+        // Nếu user đã có avatar cũ, xóa trên Cloudinary
+        if (user.avatar) {
+            // Lấy public_id từ url cũ
+            const matches = user.avatar.match(/\/([^\/]+)\.[a-zA-Z]+$/);
+            if (matches && matches[1]) {
+                const publicId = folderPathUpload + '/' + matches[1];
+                await deleteFile(publicId);
+            }
+        }
+
+        await user.update({ avatar: result.secure_url });
+
+        return res.status(200).json({ code: 0, message: 'Cập nhật avatar thành công', data: { avatar: result.secure_url } });
+    } catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lỗi server', error: error.message });
+    }
+};

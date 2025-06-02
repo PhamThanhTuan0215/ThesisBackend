@@ -42,7 +42,13 @@ const User = sequelize.define('User', {
     role: {
         type: DataTypes.STRING,
         allowNull: false,
-        defaultValue: "user",
+        defaultValue: "customer",
+        validate: {
+            isIn: {
+                args: [["customer", "admin_system", "staff_system", "admin_seller", "staff_seller"]],
+                msg: "Role phải là customer, admin_system, staff_system, admin_seller hoặc staff_seller"
+            }
+        }
     },
     status: {
         type: DataTypes.STRING,
