@@ -329,3 +329,41 @@ module.exports.updateAvatar = async (req, res) => {
         return res.status(500).json({ code: 2, message: 'Lỗi server', error: error.message });
     }
 };
+
+module.exports.forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        const user = await User.findOne({ where: { email } });
+
+        if (!user) {
+            return res.status(404).json({ code: 1, message: 'Email không tồn tại' });
+        }
+
+        const newPassword = Math.random().toString(36).substring(2, 15);
+
+        const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+        await user.update({ password: hashedNewPassword });
+
+        await sendMail({
+            to: user.email,
+            subject: 'Mật khẩu của bạn đã được thay đổi',
+            text: `Xin chào ${user.fullname},\n\nMật khẩu của bạn đã được thay đổi thành công. Nếu bạn không thực hiện thao tác này, vui lòng liên hệ hỗ trợ ngay.\n\nTrân trọng,\nĐội ngũ Ecommerce Pharmacy`,
+            html: `
+                <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                    <h2 style="color: #4CAF50;">Mật khẩu đã được thay đổi</h2>
+                    <p>Xin chào ${user.fullname},</p>
+                    <p>Mật khẩu của bạn đã được thay đổi thành công. Mật khẩu mới của bạn là: ${newPassword}</p>
+                    <p>Bạn có thể thay đổi mật khẩu tại mới tại trang profile của bạn.</p>
+                    <p>Nếu bạn không thực hiện thao tác này, vui lòng liên hệ hỗ trợ ngay.</p>
+                    <p>Trân trọng,<br>Đội ngũ Ecommerce Pharmacy</p>
+                </div>
+            `
+        })
+
+        return res.status(200).json({ code: 0, message: `Đã gửi mật khẩu mới vào email ${user.email}` });
+    } catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lỗi server', error: error.message });
+    }
+}

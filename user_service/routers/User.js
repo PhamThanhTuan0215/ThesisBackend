@@ -23,4 +23,6 @@ Router.post('/change-password', authenticateToken, Controller.changePassword);
 
 Router.post('/:id/update-avatar', Controller.uploadSingle, authenticateToken, Controller.updateAvatar);
 
+Router.post('/forgot-password', Controller.forgotPassword);
+
 module.exports = Router;
