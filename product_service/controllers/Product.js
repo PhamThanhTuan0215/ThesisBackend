@@ -4,7 +4,8 @@ const Category = require('../database/models/Category')
 
 const { uploadFiles, deleteFile } = require('../ultis/manageFilesOnCloudinary')
 
-const { Op } = require('sequelize');
+// const { Op } = require('sequelize');
+const { Op, where, fn, literal } = require('sequelize');
 
 // Cấu hình multer để lưu trữ các tệp vào bộ nhớ tạm
 const multer = require('multer');
@@ -31,8 +32,22 @@ module.exports.getAllProducts = async (req, res) => {
 
         // Áp dụng điều kiện lọc
         const conditions = {};
+
         if (name) {
-            conditions.name = { [Op.like]: `%${name}%` }; // chứa chuỗi name
+            // lọc sản phẩm có name chứa chuỗi name và không phân biệt hoa thường, hoặc có product_details?.["Tên hiển thị"] chứa chuỗi name và không phân biệt hoa thường, 2 điều này chỉ cần thỏa mãn 1 trong 2
+            conditions[Op.or] = [
+                {
+                    name: {
+                        [Op.iLike]: `%${name}%`,
+                    },
+                },
+                where(
+                    fn('LOWER', literal(`product_details->>'Tên hiển thị'`)),
+                    {
+                        [Op.like]: `%${name.toLowerCase()}%`,
+                    }
+                )
+            ];
         }
         if (brand) {
             conditions.brand = brand;
@@ -546,7 +561,7 @@ module.exports.checkStock = async (req, res) => {
 
         const errors = [];
 
-        if (!products  || !Array.isArray(products )) errors.push('products cần cung cấp');
+        if (!products || !Array.isArray(products)) errors.push('products cần cung cấp');
 
         if (errors.length > 0) {
             return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
@@ -559,11 +574,11 @@ module.exports.checkStock = async (req, res) => {
                 attributes: ['id', 'stock']
             });
 
-            if(!product) {
-                return res.status(404).json({ code: 1, message: `Sản phẩm không tồn tại: ${name}` });   
+            if (!product) {
+                return res.status(404).json({ code: 1, message: `Sản phẩm không tồn tại: ${name}` });
             }
 
-            if(product.stock < quantity) {
+            if (product.stock < quantity) {
                 return res.status(400).json({ code: 1, message: `Sản phẩm không đủ hàng: ${name} chỉ còn lại ${product.stock}` });
             }
         }
