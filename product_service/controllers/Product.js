@@ -99,7 +99,7 @@ module.exports.getAllProducts = async (req, res) => {
         // áp dụng ẩn các cột không cần thiết nếu là hiển thị cho khách hàng
         let attributes = undefined
         if (is_for_customer && (is_for_customer === 'true' || is_for_customer === true)) {
-            attributes = { exclude: ['import_price', 'stock'] }; // Ẩn các trường này
+            attributes = { exclude: ['import_price'] }; // Ẩn các trường này
 
             conditions.approval_status = 'approved';
             conditions.active_status = 'active';
@@ -528,6 +528,7 @@ module.exports.getAllBrands = async (req, res) => {
         const products = await Product.findAll({
             attributes: ['brand'], // Chỉ lấy cột 'brand'
             group: ['brand'],      // Nhóm theo cột 'brand' để lấy các giá trị duy nhất
+            order: [['brand', 'ASC']]
         });
 
         const brandList = products.map(products => products.brand);

@@ -1,6 +1,7 @@
 const ProductType = require('../database/models/ProductType')
 const DetailAttribute = require('../database/models/DetailAttribute')
 const Category = require('../database/models/Category')
+const sequelize = require('../database/sequelize');
 
 module.exports.getAllProductTypes = async (req, res) => {
     try {
@@ -16,12 +17,12 @@ module.exports.getAllProductTypes = async (req, res) => {
 module.exports.addProductType = async (req, res) => {
 
     try {
-        const {product_type_name} = req.body;
+        const { product_type_name } = req.body;
 
         const errors = [];
-    
+
         if (!product_type_name || product_type_name === '') errors.push('product_type_name cần cung cấp');
-    
+
         if (errors.length > 0) {
             return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
@@ -44,7 +45,7 @@ module.exports.addProductType = async (req, res) => {
 module.exports.deleteProductType = async (req, res) => {
 
     try {
-        const {id} = req.params;
+        const { id } = req.params;
 
         const productType = await ProductType.findByPk(id);
 
@@ -55,7 +56,7 @@ module.exports.deleteProductType = async (req, res) => {
         await productType.destroy();
 
         return res.status(200).json({ code: 0, message: 'Xóa loại sản phẩm thành công', data: productType });
-        
+
     }
     catch (error) {
         return res.status(500).json({ code: 2, message: 'Xóa loại sản phẩm thất bại', error: error.message });
@@ -64,14 +65,14 @@ module.exports.deleteProductType = async (req, res) => {
 
 module.exports.updateProductType = async (req, res) => {
     try {
-        const {id} = req.params;
+        const { id } = req.params;
 
-        const {product_type_name} = req.body;
+        const { product_type_name } = req.body;
 
         const errors = [];
-    
+
         if (!product_type_name || product_type_name === '') errors.push('product_type_name cần cung cấp');
-    
+
         if (errors.length > 0) {
             return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
@@ -86,7 +87,7 @@ module.exports.updateProductType = async (req, res) => {
         }
 
         return res.status(200).json({ code: 0, message: 'Cập nhật loại sản phẩm thành công', data: updatedRows[0] });
-        
+
     }
     catch (error) {
         if (error.name === 'SequelizeUniqueConstraintError' && error.errors[0].message) {
@@ -99,7 +100,7 @@ module.exports.updateProductType = async (req, res) => {
 
 module.exports.getDetailAttributes = async (req, res) => {
     try {
-        const {product_type_id} = req.params;
+        const { product_type_id } = req.params;
 
         const productType = await ProductType.findByPk(product_type_id);
 
@@ -108,7 +109,7 @@ module.exports.getDetailAttributes = async (req, res) => {
         }
 
         const detailAttributes = await DetailAttribute.findAll({
-            where: {product_type_id}
+            where: { product_type_id }
         });
 
         return res.status(200).json({ code: 0, message: 'Lấy tất cả thuộc tính chi tiết thành công', data: detailAttributes });
@@ -121,15 +122,15 @@ module.exports.getDetailAttributes = async (req, res) => {
 module.exports.addDetailAttributes = async (req, res) => {
 
     try {
-        const {product_type_id} = req.params;
-        const {detail_attributes} = req.body;
-    
+        const { product_type_id } = req.params;
+        const { detail_attributes } = req.body;
+
         const errors = [];
-    
+
         if (!detail_attributes || !(Array.isArray(detail_attributes) && detail_attributes.length > 0)) {
             errors.push('detail_attributes cần cung cấp');
         }
-    
+
         if (errors.length > 0) {
             return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
@@ -160,7 +161,7 @@ module.exports.addDetailAttributes = async (req, res) => {
 module.exports.deleteDetailAttribute = async (req, res) => {
 
     try {
-        const {id} = req.params;
+        const { id } = req.params;
 
         const detailAttribute = await DetailAttribute.findByPk(id);
 
@@ -171,7 +172,7 @@ module.exports.deleteDetailAttribute = async (req, res) => {
         await detailAttribute.destroy();
 
         return res.status(200).json({ code: 0, message: 'Xóa thuộc tính chi tiết thành công', data: detailAttribute });
-        
+
     }
     catch (error) {
         return res.status(500).json({ code: 2, message: 'Xóa thuộc tính chi tiết thất bại', error: error.message });
@@ -180,14 +181,14 @@ module.exports.deleteDetailAttribute = async (req, res) => {
 
 module.exports.updateDetailAttribute = async (req, res) => {
     try {
-        const {id} = req.params;
+        const { id } = req.params;
 
-        const {attribute_name} = req.body;
+        const { attribute_name } = req.body;
 
         const errors = [];
-    
+
         if (!attribute_name || attribute_name === '') errors.push('attribute_name cần cung cấp');
-    
+
         if (errors.length > 0) {
             return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
@@ -202,7 +203,7 @@ module.exports.updateDetailAttribute = async (req, res) => {
         }
 
         return res.status(200).json({ code: 0, message: 'Cập nhật thuộc tính chi tiết thành công', data: updatedRows[0] });
-        
+
     }
     catch (error) {
         if (error.name === 'SequelizeUniqueConstraintError' && error.errors[0].message) {
@@ -215,7 +216,7 @@ module.exports.updateDetailAttribute = async (req, res) => {
 
 module.exports.getCategories = async (req, res) => {
     try {
-        const {product_type_id} = req.params;
+        const { product_type_id } = req.params;
 
         const productType = await ProductType.findByPk(product_type_id);
         if (!productType) {
@@ -223,7 +224,7 @@ module.exports.getCategories = async (req, res) => {
         }
 
         const categories = await Category.findAll({
-            where: {product_type_id}
+            where: { product_type_id }
         });
 
         return res.status(200).json({ code: 0, message: 'Lấy tất cả hạng mục thành công', data: categories });
@@ -253,16 +254,16 @@ module.exports.getDistinctCategoryNames = async (req, res) => {
 module.exports.addCategories = async (req, res) => {
 
     try {
-        
-        const {product_type_id} = req.params;
-        const {categories} = req.body;
-    
+
+        const { product_type_id } = req.params;
+        const { categories } = req.body;
+
         const errors = [];
-    
+
         if (!categories || !(Array.isArray(categories) && categories.length > 0)) {
             errors.push('categories cần cung cấp');
         }
-    
+
         if (errors.length > 0) {
             return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
@@ -292,7 +293,7 @@ module.exports.addCategories = async (req, res) => {
 
 module.exports.deleteCategory = async (req, res) => {
     try {
-        const {id} = req.params;
+        const { id } = req.params;
 
         const category = await Category.findByPk(id);
 
@@ -303,7 +304,7 @@ module.exports.deleteCategory = async (req, res) => {
         await category.destroy();
 
         return res.status(200).json({ code: 0, message: 'Xóa hạng mục thành công', data: category });
-        
+
     }
     catch (error) {
         return res.status(500).json({ code: 2, message: 'Xóa hạng mục thất bại', error: error.message });
@@ -312,14 +313,14 @@ module.exports.deleteCategory = async (req, res) => {
 
 module.exports.updateCategory = async (req, res) => {
     try {
-        const {id} = req.params;
+        const { id } = req.params;
 
-        const {category_name} = req.body;
+        const { category_name } = req.body;
 
         const errors = [];
-    
+
         if (!category_name || category_name === '') errors.push('category_name cần cung cấp');
-    
+
         if (errors.length > 0) {
             return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
@@ -334,7 +335,7 @@ module.exports.updateCategory = async (req, res) => {
         }
 
         return res.status(200).json({ code: 0, message: 'Cập nhật hạng mục thành công', data: updatedRows[0] });
-        
+
     }
     catch (error) {
         if (error.name === 'SequelizeUniqueConstraintError' && error.errors[0].message) {
@@ -342,5 +343,50 @@ module.exports.updateCategory = async (req, res) => {
         }
 
         return res.status(500).json({ code: 2, message: 'Cập nhật hạng mục thất bại', error: error.message });
+    }
+}
+
+module.exports.getFullListProductTypeWithCategories = async (req, res) => {
+    try {
+        const sql = `
+            SELECT 
+              pt.id AS product_type_id,
+              pt.product_type_name AS product_type_name,
+              c.id AS category_id,
+              c.category_name AS category_name
+            FROM 
+              product_types pt
+            LEFT JOIN 
+              categories c ON pt.id = c.product_type_id
+        `;
+
+        const results = await sequelize.query(sql, {
+            type: sequelize.QueryTypes.SELECT
+        });
+
+        const grouped = results.reduce((acc, row) => {
+            const ptId = row.product_type_id;
+            if (!acc[ptId]) {
+                acc[ptId] = {
+                    product_type_id: ptId,
+                    product_type_name: row.product_type_name,
+                    categories: []
+                };
+            }
+            if (row.category_id) {
+                acc[ptId].categories.push({
+                    category_id: row.category_id,
+                    category_name: row.category_name
+                });
+            }
+            return acc;
+        }, {});
+
+        const productTypes = Object.values(grouped);
+
+        return res.status(200).json({ code: 0, message: 'Lấy danh sách tất cả các product type và các category thành công', data: productTypes });
+    }
+    catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lấy danh sách tất cả các product type và các category thất bại', error: error.message });
     }
 }
