@@ -97,17 +97,18 @@ module.exports.addProductToWishlist = async (req, res) => {
 module.exports.removeProductFromWishlist = async (req, res) => {
     try {
 
-        const { id } = req.params
+        const { user_id, product_id } = req.query
 
         const errors = [];
 
-        if (!id || id <= 0) errors.push('id cần cung cấp');
+        if (!user_id || user_id <= 0) errors.push('user_id cần cung cấp');
+        if (!product_id || product_id <= 0) errors.push('product_id cần cung cấp');
 
         if (errors.length > 0) {
             return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
 
-        const wishlistItem = await WishlistItem.findByPk(id);
+        const wishlistItem = await WishlistItem.findOne({ where: { user_id, product_id } });
 
         if (!wishlistItem) {
             return res.status(404).json({ code: 1, message: 'Sản phẩm không tồn tại trong danh sách yêu thích' });
