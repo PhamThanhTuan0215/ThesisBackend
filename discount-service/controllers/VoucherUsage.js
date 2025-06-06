@@ -3,6 +3,60 @@ const VoucherUsage = require('../database/models/VoucherUsage')
 const { Op } = require('sequelize')
 const sequelize = require('../database/sequelize');
 
+module.exports.getAvailableVouchers = async (req, res) => {
+
+    try {
+        const { user_id } = req.query;
+        const { type } = req.query;
+
+        const errors = [];
+
+        if (!user_id || user_id <= 0) errors.push('user_id cần cung cấp');
+
+        if (errors.length > 0) {
+            return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
+        }
+
+        const voucherUsages = await VoucherUsage.findAll({
+            where: {
+                user_id: user_id,
+                is_applied: true
+            },
+            attributes: ['voucher_id']
+        });
+
+        const voucherIds = voucherUsages.map(voucherUsage => voucherUsage.voucher_id);
+
+        const conditions = {
+            start_date: {
+                [Op.lte]: new Date()
+            },
+            end_date: {
+                [Op.gte]: new Date()
+            },
+            is_active: true,
+            id: {
+                [Op.notIn]: voucherIds
+            }
+        }
+
+        if (type) conditions.type = type;
+
+        const vouchers = await Voucher.findAll({
+            where: conditions,
+            order: [
+                ['updatedAt', 'DESC']
+            ]
+        });
+
+        return res.status(200).json({ code: 0, message: 'Lấy danh sách voucher khả dụng thành công', data: vouchers });
+    }
+    catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lấy danh sách voucher khả dụng thất bại', error: error.message });
+    }
+
+}
+
 module.exports.getPlatformAvailableVouchers = async (req, res) => {
     try {
         const { user_id } = req.query;
@@ -598,6 +652,7 @@ module.exports.getVoucherUsageByOrderId = async (req, res) => {
                 v.type,
                 v.issuer_type,
                 v.issuer_id,
+                v.issuer_name,
                 v.description,
                 v.discount_unit,
                 v.discount_value,
@@ -627,6 +682,7 @@ module.exports.getVoucherUsageByOrderId = async (req, res) => {
                 type: usage.type,
                 issuer_type: usage.issuer_type,
                 issuer_id: usage.issuer_id,
+                issuer_name: usage.issuer_name,
                 description: usage.description,
                 discount_unit: usage.discount_unit,
                 discount_value: usage.discount_value,
@@ -658,6 +714,7 @@ module.exports.getVoucherUsageByUserId = async (req, res) => {
                 v.type,
                 v.issuer_type,
                 v.issuer_id,
+                v.issuer_name,
                 v.description,
                 v.discount_unit,
                 v.discount_value,
@@ -686,6 +743,7 @@ module.exports.getVoucherUsageByUserId = async (req, res) => {
                 type: usage.type,
                 issuer_type: usage.issuer_type,
                 issuer_id: usage.issuer_id,
+                issuer_name: usage.issuer_name,
                 description: usage.description,
                 discount_unit: usage.discount_unit,
                 discount_value: usage.discount_value,

@@ -36,6 +36,10 @@ const Voucher = sequelize.define('Voucher', {
         type: DataTypes.BIGINT,
         allowNull: true,
     },
+    issuer_name: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
     description: {
         type: DataTypes.STRING,
         allowNull: false,

@@ -3,6 +3,9 @@ const Router = express.Router()
 
 const Controller = require('../controllers/VoucherUsage')
 
+// lấy tất cả voucher khả dụng (sàn + tất cả shop)
+Router.get('/all-avaiable-vouchers', Controller.getAvailableVouchers)
+
 Router.get('/platform', Controller.getPlatformAvailableVouchers) //  ĐANG DÙNG USER_ID TRONG QUERY
 
 Router.get('/shop/:seller_id', Controller.getShopAvailableVouchers) // ĐANG DÙNG USER_ID TRONG QUERY

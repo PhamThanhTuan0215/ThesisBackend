@@ -9,6 +9,8 @@ Router.post('/add', Controller.addProductToCart); // thêm mới hoặc tăng s�
 
 Router.delete('/reduce/:id', Controller.reduceProductInCart); // giảm số lượng (xóa nếu số lượng về 0)
 
+Router.delete('/remove/:id', Controller.removeProductFromCart); // xóa sản phẩm
+
 Router.post('/remove', Controller.removeManyProductFromCart); // xóa đồng thời nhiều sản phẩm
 
 module.exports = Router

@@ -48,6 +48,7 @@ module.exports.createVoucher = async (req, res) => {
     try {
         const { seller_id } = req.params;
         const {
+            seller_name,
             type,
             issuer_type,
             description,
@@ -65,6 +66,7 @@ module.exports.createVoucher = async (req, res) => {
         if (!issuer_type || issuer_type === '') errors.push('issuer_type cần cung cấp');
         if (issuer_type !== 'shop') errors.push('issuer_type phải là shop');
         if (!seller_id || seller_id <= 0) errors.push('seller_id cần cung cấp');
+        if (!seller_name || seller_name === '') errors.push('seller_name cần cung cấp');
         if (!description || description === '') errors.push('description cần cung cấp');
         if (!discount_unit || discount_unit === '') errors.push('discount_unit cần cung cấp');
         if (!discount_value || isNaN(discount_value) || discount_value < 0) errors.push('discount_value phải là số và lớn hơn hoặc bằng 0');
@@ -96,6 +98,7 @@ module.exports.createVoucher = async (req, res) => {
             code,
             type,
             issuer_id: seller_id,
+            issuer_name: seller_name,
             issuer_type,
             description,
             discount_unit,
