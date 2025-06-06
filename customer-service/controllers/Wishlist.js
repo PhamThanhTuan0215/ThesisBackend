@@ -25,6 +25,25 @@ module.exports.getWishlist = async (req, res) => {
     }
 }
 
+module.exports.getProductIds = async (req, res) => {
+
+    const { user_id } = req.query
+
+    const errors = [];
+
+    if (!user_id || user_id <= 0) errors.push('user_id cần cung cấp');
+
+    if (errors.length > 0) {
+        return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
+    }
+
+    const wishlistItems = await WishlistItem.findAll({ where: { user_id }, attributes: ['product_id'] });
+
+    const product_ids = wishlistItems.map(item => item.product_id);
+
+    return res.status(200).json({ code: 0, message: 'Lấy danh sách sản phẩm trong danh sách yêu thích thành công', data: product_ids });
+}
+
 module.exports.addProductToWishlist = async (req, res) => {
     try {
 
@@ -76,7 +95,7 @@ module.exports.addProductToWishlist = async (req, res) => {
 }
 
 module.exports.removeProductFromWishlist = async (req, res) => {
-        try {
+    try {
 
         const { id } = req.params
 

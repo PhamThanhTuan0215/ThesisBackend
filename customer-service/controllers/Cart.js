@@ -56,7 +56,8 @@ module.exports.addProductToCart = async (req, res) => {
             product_url_image,
             price,
             seller_id,
-            seller_name
+            seller_name,
+            quantity
         } = req.body;
 
         const errors = [];
@@ -73,11 +74,16 @@ module.exports.addProductToCart = async (req, res) => {
             return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
 
+        let quantity_to_add = 1;
+        if(quantity && quantity > 1) {
+            quantity_to_add = quantity;
+        }
+
         let existingItem = await CartItem.findOne({ where: { user_id, product_id } });
 
         if (existingItem) {
 
-            existingItem.quantity += 1;
+            existingItem.quantity += quantity_to_add;
 
             const response = await axiosProductService.post('/products/check-stock', {
                 products: [
@@ -102,7 +108,7 @@ module.exports.addProductToCart = async (req, res) => {
                     {
                         id: product_id,
                         name: product_name,
-                        quantity: 1
+                        quantity: quantity_to_add
                     }
                 ]
             });
@@ -118,7 +124,8 @@ module.exports.addProductToCart = async (req, res) => {
                 product_url_image,
                 price,
                 seller_id,
-                seller_name
+                seller_name,
+                quantity: quantity_to_add
             });
         }
 
