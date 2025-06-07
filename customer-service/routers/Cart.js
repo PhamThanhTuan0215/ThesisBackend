@@ -5,6 +5,8 @@ const Controller = require('../controllers/Cart')
 
 Router.get('/', Controller.getCart); // user_id trong query
 
+Router.get('/checkout', Controller.getCartToCheckout); // user_id trong query
+
 Router.post('/add', Controller.addProductToCart); // thêm mới hoặc tăng số lượng
 
 Router.delete('/reduce/:id', Controller.reduceProductInCart); // giảm số lượng (xóa nếu số lượng về 0)

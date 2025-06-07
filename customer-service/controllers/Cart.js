@@ -46,6 +46,85 @@ module.exports.getCart = async (req, res) => {
     }
 }
 
+module.exports.getCartToCheckout = async (req, res) => {
+    try {
+
+        const { user_id } = req.query
+
+        const errors = [];
+
+        if (!user_id || user_id <= 0) errors.push('user_id cần cung cấp');
+
+        if (errors.length > 0) {
+            return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
+        }
+
+        const cartItems = await CartItem.findAll({
+            where: { user_id },
+            order: [['updatedAt', 'DESC']]
+        });
+
+        // Gom nhóm theo nhà bán dựa vào seller_id
+        const grouped = {};
+        for (const item of cartItems) {
+            const sellerId = item.seller_id;
+            if (!grouped[sellerId]) {
+                grouped[sellerId] = {
+                    seller_id: item.seller_id,
+                    seller_name: item.seller_name,
+                    total_quantity: 0,
+                    original_items_total: 0,
+                    original_shipping_fee: 0,
+                    discount_amount_items: 0,
+                    discount_amount_shipping: 0,
+                    items_total_after_discount: 0,
+                    shipping_fee_after_discount: 0,
+                    discount_amount_items_platform_allocated: 0,
+                    discount_amount_shipping_platform_allocated: 0,
+                    final_total: 0,
+                    order_voucher: {
+                        is_applied: false,
+                        code: '',
+                        voucher_id: null,
+                        discount_amount: 0,
+                    },
+                    freeship_voucher: {
+                        is_applied: false,
+                        code: '',
+                        voucher_id: null,
+                        discount_amount: 0,
+                    },
+                    platform_order_voucher: {
+                        is_applied: false,
+                        code: '',
+                        voucher_id: null,
+                        discount_amount: 0,
+                    },
+                    platform_freeship_voucher: {
+                        is_applied: false,
+                        code: '',
+                        voucher_id: null,
+                        discount_amount: 0,
+                    },
+                    products: [],
+                };
+            }
+            grouped[sellerId].total_quantity += item.quantity;
+            grouped[sellerId].original_items_total += item.quantity * item.price;
+            grouped[sellerId].items_total_after_discount += item.quantity * item.price;
+            grouped[sellerId].final_total += item.quantity * item.price;
+            grouped[sellerId].products.push(item);
+        }
+
+        const stores = Object.values(grouped);
+
+        return res.status(200).json({ code: 0, message: 'Lấy thông tin thanh toán giỏ hàng thành công', data: stores });
+    }
+    catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lấy thông tin thanh toán giỏ hàng thất bại', error: error.message });
+    }
+}
+
 module.exports.addProductToCart = async (req, res) => {
     try {
 
