@@ -25,5 +25,6 @@ Router.get('/addresses/:id', ShippingAddressController.getShippingAddressById);
 Router.post('/addresses', ShippingAddressController.createShippingAddress);
 Router.put('/addresses/:id', ShippingAddressController.updateShippingAddress);
 Router.delete('/addresses/:id', ShippingAddressController.deleteShippingAddress);
+Router.get('/addresses/set-default/:id', ShippingAddressController.setDefaultShippingAddress);
 
 module.exports = Router; 

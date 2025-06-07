@@ -3,6 +3,7 @@ const ShippingAddress = require('../database/models/ShippingAddress');
 const Joi = require('joi');
 
 const shippingAddressSchema = Joi.object({
+    address_name: Joi.string().required(),
     user_id: Joi.number().required(),
     full_name: Joi.string().required(),
     phone: Joi.string().required(),
@@ -10,7 +11,7 @@ const shippingAddressSchema = Joi.object({
     province_name: Joi.string().required(),
     district_id: Joi.number().required(),
     district_name: Joi.string().required(),
-    ward_id: Joi.number().required(),
+    ward_code: Joi.string().required(),
     ward_name: Joi.string().required(),
     address_detail: Joi.string().required(),
     is_default: Joi.boolean().optional()
@@ -86,3 +87,17 @@ module.exports.deleteShippingAddress = async (req, res) => {
         res.status(500).json({ code: 2, success: false, message: error.message });
     }
 }; 
+
+module.exports.setDefaultShippingAddress = async (req, res) => {
+    try {
+        const address = await ShippingAddress.findByPk(req.params.id);
+        if (!address) {
+            return res.status(404).json({ code: 3, success: false, message: 'Shipping address not found' });
+        }
+        await ShippingAddress.update({ is_default: false }, { where: { user_id: address.user_id } });
+        await address.update({ is_default: true });
+        res.json({ code: 0, success: true, message: 'Shipping address set as default successfully', data: address });
+    } catch (error) {
+        res.status(500).json({ code: 2, success: false, message: error.message });
+    }
+}

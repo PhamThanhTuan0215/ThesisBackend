@@ -7,6 +7,12 @@ const ShippingAddress = sequelize.define('ShippingAddress', {
         primaryKey: true,
         autoIncrement: true,
     },
+    address_name: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'Nhà riêng',
+        comment: 'Tên địa chỉ' // Nhà riêng, Văn phòng, ...
+    },
     user_id: {
         type: DataTypes.BIGINT,
         allowNull: false,
@@ -42,10 +48,10 @@ const ShippingAddress = sequelize.define('ShippingAddress', {
         allowNull: false,
         comment: 'Tên quận/huyện'
     },
-    ward_id: {
-        type: DataTypes.INTEGER,
+    ward_code: {
+        type: DataTypes.STRING,
         allowNull: false,
-        comment: 'ID phường/xã'
+        comment: 'Mã phường/xã'
     },
     ward_name: {
         type: DataTypes.STRING,
