@@ -11,6 +11,8 @@ Router.post('/', Controller.createVoucher)
 
 Router.put('/:id', Controller.updateVoucher)
 
+Router.put('/status/:id', Controller.updateVoucherStatus)
+
 Router.delete('/:id', Controller.deleteVoucher)
 
 module.exports = Router
