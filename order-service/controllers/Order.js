@@ -103,6 +103,7 @@ module.exports.createOrder = async (req, res) => {
             const order = await Order.create({
                 user_id,
                 seller_id: store.seller_id,
+                seller_name: store.seller_name,
                 total_quantity: store.total_quantity,
                 original_items_total: store.original_items_total,
                 original_shipping_fee: store.original_shipping_fee,

@@ -98,7 +98,6 @@ module.exports.getPlatformAvailableVouchers = async (req, res) => {
 
         const vouchers = await Voucher.findAll({
             where: conditions,
-            attributes: ['id', 'code', 'type', 'description', 'issuer_id', 'discount_value', 'discount_unit', 'min_order_value', 'max_discount_value', 'end_date'],
             order: [
                 ['updatedAt', 'DESC']
             ]
@@ -164,7 +163,6 @@ module.exports.getShopAvailableVouchers = async (req, res) => {
 
         const vouchers = await Voucher.findAll({
             where: conditions,
-            attributes: ['id', 'code', 'type', 'description', 'issuer_id', 'discount_value', 'discount_unit', 'min_order_value', 'max_discount_value', 'end_date'],
             order: [
                 ['updatedAt', 'DESC']
             ]
