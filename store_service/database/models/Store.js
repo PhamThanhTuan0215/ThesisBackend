@@ -39,15 +39,31 @@ const Store = sequelize.define('Store', {
         type: DataTypes.STRING,
         allowNull: false,
     },
-    ward: {
+    province_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    province_name: {
         type: DataTypes.STRING,
         allowNull: false,
     },
-    district: {
+    district_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    district_name: {
         type: DataTypes.STRING,
         allowNull: false,
     },
-    city: {
+    ward_code: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
+    ward_name: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
+    address_detail: {
         type: DataTypes.STRING,
         allowNull: false,
     },

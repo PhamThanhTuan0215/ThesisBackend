@@ -26,8 +26,8 @@ sequelize.authenticate()
 
                 console.log('Database synchronized');
 
-                app.listen(PORT || 3003, () => {
-                    console.log("http://localhost:" + (PORT || 3003));
+                app.listen(PORT || 3004, () => {
+                    console.log("http://localhost:" + (PORT || 3004));
                 });
             })
             .catch(err => {
