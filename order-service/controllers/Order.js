@@ -5,6 +5,7 @@ const sequelize = require('../database/sequelize');
 
 const axiosProductService = require('../services/productService')
 const axiosCustomerService = require('../services/customerService')
+const axiosDiscountService = require('../services/discountService')
 
 module.exports.getOrder = async (req, res) => {
     try {
@@ -241,6 +242,9 @@ module.exports.cancelOrder = async (req, res) => {
 
         // xóa dữ liệu về các sản phẩm đã mua (gọi api của product service)
         axiosProductService.delete(`/purchased-products/cancel/${order.id}`);
+
+        //hoàn lại voucher đã áp dụng
+        axiosDiscountService.delete(`/voucher-usages/restore/${order.id}`);
 
         return res.status(200).json({ code: 0, message: 'Hủy đơn hàng thành công', data: order });
     }
