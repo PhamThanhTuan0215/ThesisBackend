@@ -13,6 +13,8 @@ Router.post('/login', Controller.login);
 
 Router.put('/', authenticateToken, Controller.updateUser);
 
+Router.put('/editCustomer/:id', Controller.adminUpdateCustomer)
+
 Router.delete('/:id', authenticateToken, Controller.deleteUser);
 
 Router.post('/:id/activate', authenticateToken, Controller.activateUser);

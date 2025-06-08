@@ -29,7 +29,13 @@ module.exports.getAllCustomers = async (req, res) => {
                 role: 'customer'
             }
         });
-        return res.status(200).json({ code: 0, message: 'Lấy danh sách người dùng thành công', data: users });
+        // Loại bỏ password khỏi từng user
+        const usersWithoutPassword = users.map(user => {
+            const userObj = user.get({ plain: true });
+            delete userObj.password;
+            return userObj;
+        });
+        return res.status(200).json({ code: 0, message: 'Lấy danh sách người dùng thành công', data: usersWithoutPassword });
     } catch (error) {
         return res.status(500).json({ code: 2, message: 'Lỗi server', error: error.message });
     }
@@ -367,3 +373,43 @@ module.exports.forgotPassword = async (req, res) => {
         return res.status(500).json({ code: 2, message: 'Lỗi server', error: error.message });
     }
 }
+
+module.exports.adminUpdateCustomer = async (req, res) => {
+    try {
+        // Chỉ cho phép admin
+        // if (req.user.role !== 'admin') {
+        //     return res.status(403).json({ code: 1, message: 'Bạn không có quyền chỉnh sửa thông tin người dùng' });
+        // }
+
+        const { id } = req.params;
+        const { email, fullname, phone, status } = req.body;
+
+        const user = await User.findOne({ where: { id, role: 'customer' } });
+        if (!user) {
+            return res.status(404).json({ code: 1, message: 'Không tìm thấy người dùng' });
+        }
+
+        // Kiểm tra email mới đã tồn tại chưa (nếu có thay đổi)
+        if (email && email !== user.email) {
+            const existingUser = await User.findOne({ where: { email } });
+            if (existingUser) {
+                return res.status(400).json({ code: 1, message: 'Email đã tồn tại' });
+            }
+        }
+
+        await user.update({
+            email: email || user.email,
+            fullname: fullname || user.fullname,
+            phone: phone || user.phone,
+            status: status || user.status
+        });
+
+        // Xóa password trước khi trả về
+        const userData = user.get({ plain: true });
+        delete userData.password;
+
+        return res.status(200).json({ code: 0, message: 'Cập nhật thông tin người dùng thành công', data: userData });
+    } catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lỗi server', error: error.message });
+    }
+};
