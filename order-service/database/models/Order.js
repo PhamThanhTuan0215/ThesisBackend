@@ -15,6 +15,10 @@ const Order = sequelize.define('Order', {
         type: DataTypes.BIGINT,
         allowNull: false,
     },
+    seller_name: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
     total_quantity: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -58,13 +62,7 @@ const Order = sequelize.define('Order', {
     payment_method: {
         type: DataTypes.STRING,
         allowNull: false,
-        defaultValue: 'COD',
-        validate: {
-            isIn: {
-                args: [['COD', 'VNPAY', 'MOMO']],
-                msg: "payment_method phải là COD, VNPAY hoặc MOMO"
-            }
-        },
+        defaultValue: 'COD'
     },
     payment_status: {
         type: DataTypes.STRING,
@@ -83,8 +81,8 @@ const Order = sequelize.define('Order', {
         defaultValue: 'pending',
         validate: {
             isIn: {
-                args: [['pending', 'processing', 'shipping', 'delivered', 'cancelled']],
-                msg: "order_status phải là pending, processing, shipping, delivered hoặc cancelled"
+                args: [['pending', 'confirmed', 'shipping', 'delivered', 'cancelled']],
+                msg: "order_status phải là pending, confirmed, shipping, delivered hoặc cancelled"
             }
         },
     },

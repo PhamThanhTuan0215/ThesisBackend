@@ -4,6 +4,7 @@ const Router = express.Router();
 const ShipmentController = require('../controllers/Shipping');
 const ShippingProviderController = require('../controllers/ShippingProvider');
 const ShippingAddressController = require('../controllers/ShippingAddress');
+const ShippingFeeController = require('../controllers/ShippingFee');
 
 // Shipment Routes
 Router.get('/shipping', ShipmentController.getShipments);
@@ -26,5 +27,8 @@ Router.post('/addresses', ShippingAddressController.createShippingAddress);
 Router.put('/addresses/:id', ShippingAddressController.updateShippingAddress);
 Router.delete('/addresses/:id', ShippingAddressController.deleteShippingAddress);
 Router.get('/addresses/set-default/:id', ShippingAddressController.setDefaultShippingAddress);
+
+// Shipping fee Routes
+Router.post('/shipping-fee', ShippingFeeController.calculateShippingFee); // tính phí vận chuyển từ các nhà bán tới khách hàng
 
 module.exports = Router; 

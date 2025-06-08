@@ -8,6 +8,9 @@ Router.post('/', Controller.uploadCustom, Controller.createStore);
 // Route lấy danh sách cửa hàng với phân trang và filter
 Router.get('/', Controller.getAllStores);
 
+// Route lấy danh sách cửa hàng với danh sách store_id
+Router.post('/list', Controller.getStoresByIds);
+
 // Route lấy thông tin một cửa hàng
 Router.get('/:id', Controller.getStore);
 
