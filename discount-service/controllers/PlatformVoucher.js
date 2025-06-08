@@ -203,29 +203,6 @@ module.exports.updateVoucher = async (req, res) => {
     }
 }
 
-module.exports.updateVoucherStatus = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { is_active } = req.body;
-
-        const voucher = await Voucher.findByPk(id);
-
-        if (!voucher) {
-            return res.status(404).json({ code: 1, message: 'Voucher không tồn tại' });
-        }
-
-        if (voucher.issuer_type !== 'platform') {
-            return res.status(404).json({ code: 1, message: 'Voucher không phải của hệ thống' });
-        }
-
-        await voucher.update({ is_active });
-
-        return res.status(200).json({ code: 0, message: 'Cập nhật trạng thái voucher thành công', data: voucher });
-    } catch (error) {
-        return res.status(500).json({ code: 2, message: 'Cập nhật trạng thái voucher thất bại', error: error.message });
-    }
-};
-
 module.exports.deleteVoucher = async (req, res) => {
     try {
         const { id } = req.params;
@@ -235,7 +212,7 @@ module.exports.deleteVoucher = async (req, res) => {
         if (!voucher) {
             return res.status(404).json({ code: 1, message: 'Voucher không tồn tại' });
         }
-        
+
         if (voucher.issuer_type !== 'platform') {
             return res.status(404).json({ code: 1, message: 'Voucher không phải của hệ thống' });
         }
@@ -259,3 +236,26 @@ module.exports.deleteVoucher = async (req, res) => {
         return res.status(500).json({ code: 2, message: 'Xóa voucher thất bại', error: error.message });
     }
 }
+
+module.exports.updateVoucherStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { is_active } = req.body;
+
+        const voucher = await Voucher.findByPk(id);
+
+        if (!voucher) {
+            return res.status(404).json({ code: 1, message: 'Voucher không tồn tại' });
+        }
+
+        if (voucher.issuer_type !== 'platform') {
+            return res.status(404).json({ code: 1, message: 'Voucher không phải của hệ thống' });
+        }
+
+        await voucher.update({ is_active });
+
+        return res.status(200).json({ code: 0, message: 'Cập nhật trạng thái voucher thành công', data: voucher });
+    } catch (error) {
+        return res.status(500).json({ code: 2, message: 'Cập nhật trạng thái voucher thất bại', error: error.message });
+    }
+};
