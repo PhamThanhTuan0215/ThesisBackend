@@ -195,6 +195,33 @@ module.exports.getAllStores = async (req, res) => {
     }
 };
 
+// Lấy danh sách cửa hàng với danh sách store_id
+module.exports.getStoresByIds = async (req, res) => {
+    try {
+        const { store_ids } = req.body;
+        
+        const stores = await Store.findAll({
+            where: {
+                id: {
+                    [Op.in]: store_ids
+                }
+            }
+        });
+
+        return res.status(200).json({
+            code: 0,
+            message: 'Lấy danh sách cửa hàng thành công',
+            data: stores
+        });
+    } catch (error) {
+        return res.status(500).json({
+            code: 2,
+            message: 'Lỗi server',
+            error: error.message
+        });
+    }
+};
+
 // Cập nhật thông tin cửa hàng (không bao gồm ảnh)
 module.exports.updateStore = async (req, res) => {
     try {
