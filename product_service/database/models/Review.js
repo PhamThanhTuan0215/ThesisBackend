@@ -13,6 +13,10 @@ const Review = sequelize.define('Review', {
         type: DataTypes.BIGINT,
         allowNull: false,
     },
+    order_id: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+    },
     user_fullname: {
         type: DataTypes.STRING,
         allowNull: false,

@@ -71,6 +71,7 @@ module.exports.writeReview = async (req, res) => {
         else {
             review = await Review.create({
                 user_id,
+                order_id: purchasedProduct.order_id,
                 user_fullname,
                 product_id,
                 rating,
