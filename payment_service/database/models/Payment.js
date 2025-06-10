@@ -1,6 +1,9 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../sequelize');
 
+const Payment_method = require('./Payment_method'); // import Payment_method để tạo quan hệ với Payment_method
+const Payment_group = require('./Payment_group'); // import Payment_group để tạo quan hệ với Payment_group
+
 const Payment = sequelize.define('Payment', {
     id: {
         type: DataTypes.BIGINT,
@@ -11,6 +14,11 @@ const Payment = sequelize.define('Payment', {
         type: DataTypes.BIGINT,
         allowNull: false,
         comment: 'ID đơn hàng từ service khác'
+    },
+    seller_id: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+        comment: 'ID người bán từ service khác'
     },
     user_id: {
         type: DataTypes.BIGINT,
@@ -27,6 +35,14 @@ const Payment = sequelize.define('Payment', {
         onUpdate: 'CASCADE',
         onDelete: 'RESTRICT'
     },
+    payment_group_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+            model: 'payment_groups',
+            key: 'id'
+        }
+    },
     amount: {
         type: DataTypes.DECIMAL(15, 2),
         allowNull: false,
@@ -36,7 +52,7 @@ const Payment = sequelize.define('Payment', {
         type: DataTypes.STRING,
         allowNull: false,
         defaultValue: 'pending',
-        comment: 'Trạng thái thanh toán (pending, completed, failed, cancelled)'
+        comment: 'Trạng thái thanh toán (pending, completed, failed, cancelled, refunded)'
     }
 }, {
     tableName: 'payments',
@@ -56,5 +72,8 @@ const Payment = sequelize.define('Payment', {
         }
     ]
 });
+
+Payment.belongsTo(Payment_method, { foreignKey: 'payment_method_id' });
+Payment.belongsTo(Payment_group, { foreignKey: 'payment_group_id' });
 
 module.exports = Payment;

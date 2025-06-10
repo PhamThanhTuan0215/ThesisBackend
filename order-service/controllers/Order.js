@@ -6,6 +6,7 @@ const sequelize = require('../database/sequelize');
 const axiosProductService = require('../services/productService')
 const axiosCustomerService = require('../services/customerService')
 const axiosDiscountService = require('../services/discountService')
+const axiosPaymentService = require('../services/paymentService')
 
 module.exports.getOrder = async (req, res) => {
     try {
@@ -239,6 +240,11 @@ module.exports.cancelOrder = async (req, res) => {
 
         order.order_status = 'cancelled';
         await order.save();
+
+        // cập nhật trạng thái thanh toán đã hủy giao dịch (gọi api của payment service)
+        axiosPaymentService.patch(`/payments/order/${order.id}/status`, {
+            status: 'cancelled'
+        });
 
         // xóa dữ liệu về các sản phẩm đã mua (gọi api của product service)
         axiosProductService.delete(`/purchased-products/cancel/${order.id}`);

@@ -70,8 +70,8 @@ const Order = sequelize.define('Order', {
         defaultValue: 'pending',
         validate: {
             isIn: {
-                args: [['pending', 'paid']],
-                msg: "payment_status phải là pending, paid hoặc cancelled"
+                args: [['pending', 'completed', 'failed', 'cancelled', 'refunded']],
+                msg: "payment_status phải là pending, completed, failed, cancelled hoặc refunded"
             }
         },
     },
@@ -81,8 +81,8 @@ const Order = sequelize.define('Order', {
         defaultValue: 'pending',
         validate: {
             isIn: {
-                args: [['pending', 'confirmed', 'shipping', 'delivered', 'cancelled']],
-                msg: "order_status phải là pending, confirmed, shipping, delivered hoặc cancelled"
+                args: [['pending', 'confirmed', 'shipping', 'delivered', 'cancelled', 'refunded']],
+                msg: "order_status phải là pending, confirmed, shipping, delivered, cancelled hoặc refunded"
             }
         },
     },
