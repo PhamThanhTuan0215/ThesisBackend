@@ -105,7 +105,7 @@ const Order = sequelize.define('Order', {
 
 // trước khi lưu (thêm hoặc cập nhât) thì thiết lập is_completed = true nếu payment_status = paid và order_status = delivered
 Order.beforeSave((order, options) => {
-    order.is_completed = (order.payment_status === 'paid' && order.order_status === 'delivered');
+    order.is_completed = (order.payment_status === 'completed' && order.order_status === 'delivered');
 });
 
 module.exports = Order;
