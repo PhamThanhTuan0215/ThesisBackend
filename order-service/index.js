@@ -14,6 +14,7 @@ app.get('/', (req, res) => {
 })
 
 app.use("/orders", require("./routers/Order"))
+app.use("/order-returns", require("./routers/OrderReturn"))
 
 sequelize.authenticate()
     .then(() => {

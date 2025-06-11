@@ -9,4 +9,6 @@ Router.put('/update-status', Controller.updateStatusPurchasedProduct)
 
 Router.delete('/cancel/:order_id', Controller.deletePurchasedProduct)
 
+Router.put('/returned/:order_id', Controller.returnedPurchasedProduct)
+
 module.exports = Router

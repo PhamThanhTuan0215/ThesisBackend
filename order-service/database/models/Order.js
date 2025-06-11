@@ -90,15 +90,7 @@ const Order = sequelize.define('Order', {
         type: DataTypes.BOOLEAN,
         allowNull: false,
         defaultValue: false,
-    },
-    payment_id: {
-        type: DataTypes.BIGINT,
-        allowNull: true,
-    }, // id thanh toán
-    shipment_id: {
-        type: DataTypes.BIGINT,
-        allowNull: true,
-    } // id vận chuyển
+    }
 }, {
     tableName: 'orders'
 });

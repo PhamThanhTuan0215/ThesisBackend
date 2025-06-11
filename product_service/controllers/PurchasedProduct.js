@@ -117,3 +117,69 @@ module.exports.deletePurchasedProduct = async (req, res) => {
         return res.status(500).json({ code: 2, message: 'Xóa sản phẩm đã mua thất bại', error: error.message });
     }
 }
+
+module.exports.returnedPurchasedProduct = async (req, res) => {
+    try {
+        const { order_id } = req.params
+        const { list_product } = req.body
+
+        const errors = [];
+
+        if (!order_id || order_id <= 0) errors.push('order_id cần cung cấp');
+        if (!list_product || !Array.isArray(list_product)) errors.push('list_product cần cung cấp');
+        
+        if (errors.length > 0) {
+            return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
+        }
+
+        const purchasedProducts = await PurchasedProduct.findAll({
+            where: { order_id }
+        });
+
+        if(purchasedProducts.length <= 0) {
+            return res.status(404).json({ code: 1, message: 'Sản phẩm đã mua không tồn tại' });
+        }
+
+        // cập nhật trạng thái trả hàng của sản phẩm đã mua, cập nhật số lượng và total_price dựa vào product_lists, nếu như số lượng về 0 thì xóa luôn
+        // số lương mới sẽ bằng hiện tại trong purchased_products trừ đi số lượng hoàn trả trong product_lists
+        // total_price mới sẽ bằng số lượng mới nhân với giá hiện tại của sản phẩm
+        // dùng promise.all để cập nhật các sản phẩm cùng lúc
+        await Promise.all(list_product.map(async (product) => {
+            const purchasedProduct = await PurchasedProduct.findOne({
+                where: { order_id, product_id: product.product_id }
+            });
+
+            if (!purchasedProduct) {
+                return res.status(404).json({ code: 1, message: 'Sản phẩm đã mua không tồn tại' });
+            }
+
+            purchasedProduct.quantity = Number(purchasedProduct.quantity) - Number(product.quantity);
+            purchasedProduct.total_price = Number(purchasedProduct.total_price) - Number(product.total_price);
+
+            await purchasedProduct.save();
+
+            if (purchasedProduct.quantity === 0) {
+                await PurchasedProduct.destroy({
+                    where: { order_id, product_id: product.product_id }
+                });
+            }
+
+            return purchasedProduct;
+        }));
+
+        // cập nhật lại kho hàng, tăng lại số lượng tương ứng đã hoàn trả
+        // dùng promise.all để cập nhật các sản phẩm cùng lúc
+        await Promise.all(list_product.map(async (product) => {
+            await Product.update({
+                stock: Sequelize.literal(`stock + ${product.quantity}`)
+            }, {
+                where: { id: product.product_id }
+            });
+        }));
+
+        return res.status(200).json({ code: 0, message: 'Cập nhật trạng thái trả hàng của sản phẩm đã mua thành công', data: purchasedProducts });
+    }
+    catch (error) {
+        return res.status(500).json({ code: 2, message: 'Cập nhật trạng thái trả hàng của sản phẩm đã mua thất bại', error: error.message });
+    }
+}

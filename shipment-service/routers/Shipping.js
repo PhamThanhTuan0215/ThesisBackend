@@ -30,5 +30,6 @@ Router.get('/addresses/set-default/:id', ShippingAddressController.setDefaultShi
 
 // Shipping fee Routes
 Router.post('/shipping-fee', ShippingFeeController.calculateShippingFee); // tính phí vận chuyển từ các nhà bán tới khách hàng
+Router.post('/return-shipping-fee', ShippingFeeController.calculateReturnShippingFee); // tính phí vận chuyển từ khách hàng về nhà bán
 
-module.exports = Router; 
+module.exports = Router;

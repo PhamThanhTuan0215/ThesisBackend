@@ -60,3 +60,41 @@ module.exports.calculateShippingFee = async (req, res) => {
         res.status(500).json({ code: 2, success: false, message: error.message });
     }
 };
+
+
+module.exports.calculateReturnShippingFee = async (req, res) => {
+    try {
+        const { customer_shipping_address_id, seller_id } = req.body;
+
+        const customerShippingAddress = await ShippingAddress.findByPk(customer_shipping_address_id);
+
+        const response = await axiosStoreService.get(`/stores/${seller_id}`);
+
+        const storeInfo = response.data.data;
+
+        const responseGHN = await axiosGHN.post('/v2/shipping-order/fee', {
+            service_type_id: 2,
+            from_district_id: customerShippingAddress.district_id,
+            from_ward_code: customerShippingAddress.ward_code,
+            to_district_id: storeInfo.district_id,
+            to_ward_code: storeInfo.ward_code,
+            height: 10,
+            length: 10,
+            width: 10,
+            weight: 200,
+            insurance_value: 0,
+            coupon: null
+        })
+
+        if (responseGHN.data.code === 200) {
+            const returnShippingFee = responseGHN.data.data.total;
+
+            res.status(200).json({ code: 0, success: true, data: returnShippingFee });
+        } else {
+            res.status(500).json({ code: 2, success: false, message: responseGHN.data.message });
+        }
+
+    } catch (error) {
+        res.status(500).json({ code: 2, success: false, message: error.message });
+    }
+}

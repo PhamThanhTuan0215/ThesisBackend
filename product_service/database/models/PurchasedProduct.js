@@ -35,7 +35,7 @@ const PurchasedProduct = sequelize.define('PurchasedProduct', {
         allowNull: false,
         defaultValue: 1,
         validate: {
-            min: 1
+            min: 0
         }
     },
     total_price: {
