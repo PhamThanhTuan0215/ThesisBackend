@@ -10,7 +10,7 @@ const axiosPaymentService = require('../services/paymentService')
 
 module.exports.getOrder = async (req, res) => {
     try {
-        const { startDate, endDate, order_status } = req.query;
+        const { startDate, endDate, order_status, payment_status } = req.query;
 
         const conditions = {};
 
@@ -41,6 +41,10 @@ module.exports.getOrder = async (req, res) => {
 
         if (order_status && order_status !== '') {
             conditions.order_status = order_status;
+        }
+
+        if (payment_status && payment_status !== '') {
+            conditions.payment_status = payment_status;
         }
 
         const orders = await Order.findAll({
