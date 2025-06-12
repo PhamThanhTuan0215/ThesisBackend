@@ -5,7 +5,7 @@ const { authenticateToken } = require('../middlewares/auth');
 
 Router.get('/', Controller.getAllCustomers);
 
-Router.get('/:id', authenticateToken, Controller.getUserById);
+Router.get('/:id', Controller.getUserById);
 
 Router.post('/register', Controller.register);
 
@@ -15,16 +15,16 @@ Router.put('/', authenticateToken, Controller.updateUser);
 
 Router.put('/editCustomer/:id', Controller.adminUpdateCustomer)
 
-Router.delete('/:id', authenticateToken, Controller.deleteUser);
+Router.delete('/:id', Controller.deleteUser);
 
-Router.post('/:id/activate', authenticateToken, Controller.activateUser);
+Router.post('/:id/activate', Controller.activateUser);
 
-Router.post('/:id/deactivate', authenticateToken, Controller.deactivateUser);
+Router.post('/:id/deactivate', Controller.deactivateUser);
 
 Router.post('/change-password', authenticateToken, Controller.changePassword);
 
 Router.post('/:id/update-avatar', Controller.uploadSingle, authenticateToken, Controller.updateAvatar);
 
-Router.post('/forgot-password', Controller.forgotPassword);
+Router.post('/forgot-password', authenticateToken, Controller.forgotPassword);
 
 module.exports = Router;
