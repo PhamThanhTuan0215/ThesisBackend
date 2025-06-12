@@ -4,6 +4,7 @@ const OrderReturnRequest = require('../database/models/OrderReturnRequest');
 const ReturnedOrder = require('../database/models/ReturnedOrder');
 const ReturnedOrderItem = require('../database/models/ReturnedOrderItem');
 const sequelize = require('../database/sequelize');
+const { Op } = require('sequelize');
 
 const axiosShipmentService = require('../services/shipmentService')
 const axiosProductService = require('../services/productService')
@@ -34,14 +35,23 @@ exports.createReturnRequest = async (req, res) => {
         const existingRequest = await OrderReturnRequest.findOne({
             where: {
                 order_id,
-                status: 'requested'
+                status: {
+                    [Op.in]: ['requested', 'accepted']
+                }
             }
         });
 
-        if (existingRequest) {
+        if (existingRequest &&existingRequest.status === 'requested') {
             return res.status(400).json({
                 code: 1,
-                message: 'Yêu cầu hoàn trả đã tồn tại'
+                message: 'Yêu cầu hoàn trả đã tồn tại, vui lòng chờ phản hồi'
+            });
+        }
+
+        if (existingRequest && existingRequest.status === 'accepted') {
+            return res.status(400).json({
+                code: 1,
+                message: 'Yêu cầu hoàn trả đã được chấp nhận, vui lòng chờ hoàn trả'
             });
         }
 
