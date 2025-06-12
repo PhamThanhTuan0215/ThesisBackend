@@ -10,7 +10,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 app.get('/', (req, res) => {
-    return res.status(200).json({code: 0, message: 'Hello customer service'})
+    return res.status(200).json({code: 0, message: 'Run customer service successfully'})
 })
 
 app.use("/carts", require("./routers/Cart"))

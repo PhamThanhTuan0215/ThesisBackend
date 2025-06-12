@@ -10,7 +10,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 app.get('/', (req, res) => {
-    return res.status(200).json({code: 0, message: 'Hello discount service'})
+    return res.status(200).json({code: 0, message: 'Run discount service successfully'})
 })
 
 app.use("/vouchers/platform", require("./routers/PlatformVoucher"))

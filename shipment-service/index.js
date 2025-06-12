@@ -13,7 +13,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 app.get('/', (req, res) => {
-    return res.status(200).json({ code: 0, message: 'Hello shipment service' })
+    return res.status(200).json({ code: 0, message: 'Run shipment service successfully' })
 })
 
 app.use('/shipments', shippingRouter);
