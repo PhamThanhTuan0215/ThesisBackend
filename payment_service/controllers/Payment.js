@@ -284,7 +284,7 @@ module.exports.VNPay = async (req, res) => {
         if (bankCode) {
             vnp_Params["vnp_BankCode"] = bankCode;
         }
-        
+
         vnp_Params = sortObject(vnp_Params);
         let signData = querystring.stringify(vnp_Params, { encode: false });
         let hmac = crypto.createHmac("sha512", secretKey);
@@ -385,7 +385,7 @@ module.exports.VNPayMultiple = async (req, res) => {
         if (bankCode) {
             vnp_Params["vnp_BankCode"] = bankCode;
         }
-        
+
         vnp_Params = sortObject(vnp_Params);
         let signData = querystring.stringify(vnp_Params, { encode: false });
         let hmac = crypto.createHmac("sha512", secretKey);
@@ -437,7 +437,7 @@ module.exports.VNPayReturn = async (req, res) => {
             if (txnRef.startsWith('G')) {
                 const groupId = parseInt(txnRef.substring(1));
                 const paymentGroup = await Payment_group.findByPk(groupId);
-                
+
                 if (!paymentGroup) {
                     return res.status(404).json({
                         code: 3,
@@ -454,7 +454,7 @@ module.exports.VNPayReturn = async (req, res) => {
                 if (responseCode === "00") {
                     // Cập nhật trạng thái của payment group
                     await paymentGroup.update({ status: 'completed' });
-                    
+
                     // Cập nhật trạng thái của tất cả các payment trong group
                     await Promise.all(payments.map(async (payment) => {
                         await payment.update({ status: 'completed' });
@@ -548,7 +548,8 @@ module.exports.getPaymentHistory = async (req, res) => {
             endDate,
             status,
             payment_method_id,
-            user_id
+            user_id,
+            seller_id
         } = req.query;
 
         const offset = (page - 1) * limit;
@@ -570,6 +571,10 @@ module.exports.getPaymentHistory = async (req, res) => {
 
         if (user_id) {
             where.user_id = user_id;
+        }
+
+        if (seller_id) {
+            where.seller_id = seller_id;
         }
 
         const { count, rows } = await Payment.findAndCountAll({

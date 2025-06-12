@@ -132,7 +132,7 @@ exports.deleteReturnRequest = async (req, res) => {
 // Lấy danh sách yêu cầu hoàn trả
 exports.getReturnRequests = async (req, res) => {
     try {
-        const { seller_id, user_id } = req.query;
+        const { seller_id, user_id, status } = req.query;
         const where = {};
 
         if (seller_id) {
@@ -141,6 +141,16 @@ exports.getReturnRequests = async (req, res) => {
 
         if (user_id) {
             where.user_id = user_id;
+        }
+
+        if (status) {
+            if (!['requested', 'accepted', 'rejected'].includes(status)) {
+                return res.status(400).json({
+                    code: 1,
+                    message: 'Trạng thái không hợp lệ'
+                });
+            }
+            where.status = status;
         }
 
         const requests = await OrderReturnRequest.findAll({

@@ -66,7 +66,6 @@ module.exports.createVoucher = async (req, res) => {
         if (!issuer_type || issuer_type === '') errors.push('issuer_type cần cung cấp');
         if (issuer_type !== 'shop') errors.push('issuer_type phải là shop');
         if (!seller_id || seller_id <= 0) errors.push('seller_id cần cung cấp');
-        if (!seller_name || seller_name === '') errors.push('seller_name cần cung cấp');
         if (!description || description === '') errors.push('description cần cung cấp');
         if (!discount_unit || discount_unit === '') errors.push('discount_unit cần cung cấp');
         if (!discount_value || isNaN(discount_value) || discount_value < 0) errors.push('discount_value phải là số và lớn hơn hoặc bằng 0');
@@ -244,3 +243,32 @@ module.exports.deleteVoucher = async (req, res) => {
         return res.status(500).json({ code: 2, message: 'Xóa voucher thất bại', error: error.message });
     }
 }
+
+module.exports.updateVoucherStatus = async (req, res) => {
+    try {
+        const { id, seller_id} = req.params;
+        const { is_active } = req.body;
+
+        const voucher = await Voucher.findOne({
+            where: {
+                id,
+                issuer_type: 'shop',
+                issuer_id: seller_id
+            }
+        });
+
+        if (!voucher) {
+            return res.status(404).json({ code: 1, message: 'Voucher không tồn tại' });
+        }
+
+        if (voucher.issuer_type !== 'shop') {
+            return res.status(404).json({ code: 1, message: 'Voucher không phải của shop' });
+        }
+
+        await voucher.update({ is_active });
+
+        return res.status(200).json({ code: 0, message: 'Cập nhật trạng thái voucher thành công', data: voucher });
+    } catch (error) {
+        return res.status(500).json({ code: 2, message: 'Cập nhật trạng thái voucher thất bại', error: error.message });
+    }
+};

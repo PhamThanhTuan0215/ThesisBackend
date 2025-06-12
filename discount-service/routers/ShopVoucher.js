@@ -13,4 +13,6 @@ Router.put('/:seller_id/:id', Controller.updateVoucher)
 
 Router.delete('/:seller_id/:id', Controller.deleteVoucher)
 
+Router.put('/:seller_id/status/:id', Controller.updateVoucherStatus)
+
 module.exports = Router
