@@ -132,7 +132,7 @@ exports.deleteReturnRequest = async (req, res) => {
 // Lấy danh sách yêu cầu hoàn trả
 exports.getReturnRequests = async (req, res) => {
     try {
-        const { seller_id, user_id, status } = req.query;
+        const { status, seller_id, user_id } = req.query;
         const where = {};
 
         if (seller_id) {
@@ -408,21 +408,21 @@ exports.updateReturnedOrder = async (req, res) => {
             return res.status(404).json({ code: 1, message: 'Đơn hàng hoàn trả không tồn tại' });
         }
 
-        if(returnedOrder.is_completed) {
+        if (returnedOrder.is_completed) {
             return res.status(400).json({ code: 1, message: 'Đơn hàng hoàn trả đã hoàn tất, không thể cập nhật' });
         }
 
-        if(order_status && order_status !== '') {
+        if (order_status && order_status !== '') {
             returnedOrder.order_status = order_status;
         }
 
-        if(payment_refund_status && payment_refund_status !== '') {
+        if (payment_refund_status && payment_refund_status !== '') {
             returnedOrder.payment_refund_status = payment_refund_status;
         }
 
         await returnedOrder.save();
 
-        if(returnedOrder.is_completed) {
+        if (returnedOrder.is_completed) {
 
             const returnedOrderItems = await ReturnedOrderItem.findAll({
                 where: {
