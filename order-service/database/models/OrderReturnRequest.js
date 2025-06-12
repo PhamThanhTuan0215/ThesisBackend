@@ -39,7 +39,7 @@ const OrderReturnRequest = sequelize.define('OrderReturnRequest', {
     },
     customer_message: {
         type: DataTypes.TEXT,
-        allowNull: false,
+        allowNull: true,
     },
     request_at: {
         type: DataTypes.DATE,
