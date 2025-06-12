@@ -433,7 +433,8 @@ exports.updateReturnedOrder = async (req, res) => {
 
             // cập nhật trạng thái đơn hàng gốc
             Order.update({
-                order_status: 'refunded'
+                order_status: 'refunded',
+                payment_status: 'refunded'
             }, {
                 where: {
                     id: returnedOrder.order_id
