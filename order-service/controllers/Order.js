@@ -3,10 +3,13 @@ const OrderItem = require('../database/models/OrderItem');
 const { Op } = require('sequelize');
 const sequelize = require('../database/sequelize');
 
+const sendMail = require("../units/sendMail.js")
+
 const axiosProductService = require('../services/productService')
 const axiosCustomerService = require('../services/customerService')
 const axiosDiscountService = require('../services/discountService')
 const axiosPaymentService = require('../services/paymentService')
+const axiosUserService = require('../services/userService')
 
 module.exports.getOrder = async (req, res) => {
     try {
@@ -56,7 +59,7 @@ module.exports.getOrder = async (req, res) => {
             order: [
                 // Đưa order_status = 'cancelled' xuống cuối cùng
                 [sequelize.literal(`CASE WHEN order_status = 'cancelled' THEN 1 ELSE 0 END`), 'ASC'],
-                
+
                 // sắp xếp theo ngày tạo đơn hàng
                 ['createdAt', 'DESC']
             ]
@@ -104,9 +107,12 @@ module.exports.createOrder = async (req, res) => {
             return res.status(400).json({ code: 1, message: response.data.message || 'Sản phẩm không đủ hàng' });
         }
 
+        //tạo thông tin các đơn hàng để gửi email
+        const orders_info = [];
+
         // tạo các đơn hàng cùng chi tiết đơn hàng theo từng cửa hàng, tạo đồng thời
         const orderPromises = stores.map(async (store) => {
-            
+
             const total = (store.original_items_total + store.original_shipping_fee) - (store.discount_amount_items + store.discount_amount_shipping + store.discount_amount_items_platform_allocated + store.discount_amount_shipping_platform_allocated);
 
             // Tạo đơn hàng cho mỗi cửa hàng
@@ -156,11 +162,26 @@ module.exports.createOrder = async (req, res) => {
                 product_ids: orderItems.map(item => item.product_id)
             });
 
+            // tạo thông tin các đơn hàng để gửi email (orders_info, mỗi phần từ là 1 đơn hàng, trong 1 đơn hàng ngoài các thông tin đơn hàng còn có các thông tin về các sản phẩm trong đơn hàng (order.order_items))
+            orders_info.push({
+                ...order.dataValues,
+                order_items: orderItems
+            });
+
             return order;
         });
 
         // Đợi tất cả đơn hàng và chi tiết đơn hàng được tạo
         const orders = await Promise.all(orderPromises);
+
+        try {
+            // gửi email thông tin đơn hàng, lấy ra token từ req.headers.authorization nếu có
+            const token = req.headers.authorization ? req.headers.authorization.split(' ')[1] : null;
+            sendOrdersInfoEmail(token, user_id, orders_info);
+        }
+        catch (error) {
+            console.log('Gửi email thông tin đơn hàng thất bại', error);
+        }
 
         return res.status(201).json({ code: 0, message: 'Tạo đơn hàng thành công', data: orders });
 
@@ -187,22 +208,22 @@ module.exports.updateOrder = async (req, res) => {
         if (!order) {
             return res.status(404).json({ code: 1, message: 'Đơn hàng không tồn tại' });
         }
-        
-        if(order.is_completed) {
+
+        if (order.is_completed) {
             return res.status(400).json({ code: 1, message: 'Đơn hàng đã hoàn tất, không thể cập nhật' });
         }
 
-        if(order_status && order_status !== '') {
+        if (order_status && order_status !== '') {
             order.order_status = order_status;
         }
 
-        if(payment_status && payment_status !== '') {
+        if (payment_status && payment_status !== '') {
             order.payment_status = payment_status;
         }
 
         await order.save();
 
-        if(order.is_completed) {
+        if (order.is_completed) {
             // cập nhật dữ liệu về các sản phẩm đã mua (gọi api của product service)
             axiosProductService.put('/purchased-products/update-status', {
                 order_id: order.id,
@@ -234,7 +255,7 @@ module.exports.cancelOrder = async (req, res) => {
             return res.status(404).json({ code: 1, message: 'Đơn hàng không tồn tại' });
         }
 
-        if(order.is_completed) {
+        if (order.is_completed) {
             return res.status(400).json({ code: 1, message: 'Đơn hàng đã hoàn tất, không thể hủy' });
         }
 
@@ -318,7 +339,7 @@ module.exports.getOrderByUserId = async (req, res) => {
             order: [
                 // Đưa order_status = 'cancelled' xuống cuối cùng
                 [sequelize.literal(`CASE WHEN order_status = 'cancelled' THEN 1 ELSE 0 END`), 'ASC'],
-                
+
                 // sắp xếp theo ngày tạo đơn hàng
                 ['createdAt', 'DESC']
             ]
@@ -382,7 +403,7 @@ module.exports.getOrderBySellerId = async (req, res) => {
             order: [
                 // Đưa order_status = 'cancelled' xuống cuối cùng
                 [sequelize.literal(`CASE WHEN order_status = 'cancelled' THEN 1 ELSE 0 END`), 'ASC'],
-                
+
                 // sắp xếp theo ngày tạo đơn hàng
                 ['createdAt', 'DESC']
             ]
@@ -432,3 +453,128 @@ module.exports.getOrderDetails = async (req, res) => {
         return res.status(500).json({ code: 2, message: 'Lấy chi tiết đơn hàng thất bại', error: error.message });
     }
 }
+
+const sendOrdersInfoEmail = async (token, user_id, orders_info) => {
+    try {
+        // lấy thông tin người dùng (gọi api của user service)
+        const response = await axiosUserService.get(`/users/${user_id}`, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+
+        if (response.data.code !== 0) {
+            console.log('Lấy thông tin người dùng thất bại', response.data.message);
+            throw new Error(response.data.message);
+        }
+
+        const { email, fullname } = response.data.data;
+
+        await sendMail({
+            to: email, subject: 'Đặt hàng thành công', text: 'Đơn hàng mới đã được tạo',
+            html: `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Bill</title>
+                <style>
+                    table {
+                        border-collapse: collapse;
+                        width: 100%;
+                    }
+                    th, td {
+                        border: 1px solid #dddddd;
+                        text-align: left;
+                        padding: 8px;
+                    }
+                    th {
+                        background-color: #f2f2f2;
+                    }
+                </style>
+            </head>
+            <body>
+                <p>Xin chào ${fullname},</p>
+                <p>Đơn hàng mới đã được tạo thành công.</p>
+                <br>
+                ${orders_info.map(order => `
+                    <h2>Đơn hàng từ ${order.seller_name}</h2>
+                    <table>
+                        <tr>
+                            <th>Nhà bán</th>
+                            <td>${order.seller_name}</td>
+                        </tr>
+                        <tr>
+                            <th>Ngày tạo</th>
+                            <td>${new Date(order.createdAt).toLocaleDateString('vi-VN')}</td>
+                        </tr>
+                        <tr>
+                            <th>Tổng số lượng sản phẩm</th>
+                            <td>${order.total_quantity}</td>
+                        </tr>
+                        <tr>
+                            <th>Phí vận chuyển</th>
+                            <td>${formatPrice(order.original_shipping_fee)}</td>
+                        </tr>
+                        <tr>
+                            <th>Tổng giảm giá từ voucher</th>
+                            <td>${formatPrice(Number(order.discount_amount_items || 0) + 
+                                Number(order.discount_amount_shipping || 0) + 
+                                Number(order.discount_amount_items_platform_allocated || 0) + 
+                                Number(order.discount_amount_shipping_platform_allocated || 0))}</td>
+                        </tr>
+                        <tr>
+                            <th>Phương thức thanh toán</th>
+                            <td>${order.payment_method}</td>
+                        </tr>
+                        <tr>
+                            <th>Tổng tiền đơn hàng</th>
+                            <td style="font-weight: bold; color: red;">${formatPrice(order.final_total)}</td>
+                        </tr>
+                    </table>
+                    <br>
+                    <table>
+                        <tr>
+                            <th>Tên sản phẩm</th>
+                            <th>Số lượng</th>
+                            <th>Đơn giá</th>
+                            <th>Thành tiền</th>
+                        </tr>
+                    ${order.order_items.map(item => `
+                        <tr>
+                            <td>${item.product_name}</td>
+                            <td>${item.product_quantity}</td>
+                            <td>${formatPrice(item.product_price)}</td>
+                            <td>${formatPrice(item.product_price * item.product_quantity)}</td>
+                        </tr>
+                    `).join('')}
+                    </table>
+                    <br>
+                `).join('')}
+                <br>
+                <p>Tổng tiền: <span style="font-weight: bold; color: red; font-size: 1.5em;">${formatPrice(orders_info.reduce((total, order) => total + Number(order.final_total || 0), 0))}</span></p>
+                <br>
+                <p>Cảm ơn bạn đã đặt hàng tại PharmaMart Tuan-Thanh.</p>
+                <p>Nếu có bất kỳ câu hỏi nào, vui lòng liên hệ với chúng tôi.</p>
+                <p>Trân trọng,</p>
+                <p>PharmaMart Tuan-Thanh</p>
+            </body>
+            </html>
+        `
+        });
+
+        return true;
+    }
+    catch (error) {
+        console.log(error);
+        return false;
+    }
+}
+
+const formatPrice = (price) => {
+    return new Intl.NumberFormat('vi-VN', {
+        style: 'currency',
+        currency: 'VND'
+    }).format(price);
+};
