@@ -162,7 +162,7 @@ module.exports.getProductByIdForCustomer = async (req, res) => {
 
         const product = await Product.findByPk(id, {
             attributes: {
-                exclude: ['import_price', 'stock']
+                exclude: ['import_price']
             }
         });
 
