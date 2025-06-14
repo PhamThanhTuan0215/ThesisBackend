@@ -22,7 +22,6 @@
     "nodemailer": "^7.0.3",
     "nodemon": "^3.1.10",
     "pg": "^8.15.6",
-    "sequelize": "^6.37.7",
-    "user_service": "file:"
+    "sequelize": "^6.37.7"
   }
 }
