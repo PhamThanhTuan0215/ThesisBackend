@@ -71,6 +71,11 @@ const Store = sequelize.define('Store', {
         type: DataTypes.STRING,
         allowNull: true,
     },
+    balance: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: 0
+    },
     status: {
         type: DataTypes.STRING,
         allowNull: false,

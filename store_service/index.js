@@ -16,6 +16,8 @@ app.get('/', (req, res) => {
 app.use('/stores', require('./routers/Store'))
 app.use('/store_payment_infos', require('./routers/Store_payment_info'))
 app.use('/settlements', require('./routers/Settlement'))
+app.use('/withdraw_requests', require('./routers/withdraw_requests'))
+app.use('/user_seller_access', require('./routers/user_seller_access'))
 
 sequelize.authenticate()
     .then(() => {
