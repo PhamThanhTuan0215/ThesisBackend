@@ -2,6 +2,8 @@ const express = require('express');
 const Router = express.Router();
 const Controller = require('../controllers/Store_payment_info');
 
+const authenticateToken = require('../middlewares/auth');
+
 // Route tạo phương thức thanh toán mới
 Router.post('/', Controller.uploadQRCode, Controller.createPaymentInfo);
 

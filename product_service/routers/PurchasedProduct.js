@@ -3,6 +3,8 @@ const Router = express.Router()
 
 const Controller = require('../controllers/PurchasedProduct')
 
+const authenticateToken = require('../middlewares/auth');
+
 Router.post('/add', Controller.addPurchasedProduct)
 
 Router.put('/update-status', Controller.updateStatusPurchasedProduct)

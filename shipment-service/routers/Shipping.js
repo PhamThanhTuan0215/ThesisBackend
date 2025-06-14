@@ -6,6 +6,8 @@ const ShippingProviderController = require('../controllers/ShippingProvider');
 const ShippingAddressController = require('../controllers/ShippingAddress');
 const ShippingFeeController = require('../controllers/ShippingFee');
 
+const authenticateToken = require('../middlewares/auth');
+
 // Shipment Routes
 Router.get('/shipping', ShipmentController.getShipments);
 Router.get('/shipping/:id', ShipmentController.getShipmentById);

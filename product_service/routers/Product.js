@@ -3,6 +3,8 @@ const Router = express.Router()
 
 const Controller = require('../controllers/Product')
 
+const authenticateToken = require('../middlewares/auth');
+
 Router.get('/list-product', Controller.getAllProducts) // cung cấp các điều kiện lọc tại đây
 
 Router.get('/brands', Controller.getAllBrands);

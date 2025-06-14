@@ -3,6 +3,8 @@ const Router = express.Router()
 
 const Controller = require('../controllers/Complaint')
 
+const authenticateToken = require('../middlewares/auth');
+
 Router.post('/add', Controller.createComplaint);    // user_id trong query
 
 Router.get('/', Controller.getAllComplaints); // có thể truyền thêm user_id trong query để lọc theo 1 người dùng

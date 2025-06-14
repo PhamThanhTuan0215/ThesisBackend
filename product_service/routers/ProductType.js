@@ -3,6 +3,8 @@ const Router = express.Router()
 
 const Controller = require('../controllers/ProductType')
 
+const authenticateToken = require('../middlewares/auth');
+
 // Lấy danh sách tất cả các product type
 Router.get('/list-product-type', Controller.getAllProductTypes)
 

@@ -3,6 +3,8 @@ const Router = express.Router()
 
 const Controller = require('../controllers/Order')
 
+const authenticateToken = require('../middlewares/auth');
+
 Router.get('/', Controller.getOrder)
 
 Router.post('/', Controller.createOrder)

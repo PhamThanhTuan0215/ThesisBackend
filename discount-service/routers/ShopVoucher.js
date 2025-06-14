@@ -3,6 +3,8 @@ const Router = express.Router()
 
 const Controller = require('../controllers/ShopVoucher')
 
+const authenticateToken = require('../middlewares/auth');
+
 Router.get('/:seller_id', Controller.getVouchers)
 
 Router.get('/:seller_id/:id', Controller.getVoucherById)

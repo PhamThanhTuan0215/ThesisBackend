@@ -3,6 +3,8 @@ const Router = express.Router()
 
 const Controller = require('../controllers/PlatformVoucher')
 
+const authenticateToken = require('../middlewares/auth');
+
 Router.get('/', Controller.getVouchers)
 
 Router.get('/:id', Controller.getVoucherById)

@@ -3,6 +3,8 @@ const Router = express.Router()
 
 const Controller = require('../controllers/VoucherUsage')
 
+const authenticateToken = require('../middlewares/auth');
+
 // lấy tất cả voucher khả dụng (sàn + tất cả shop)
 Router.get('/all-avaiable-vouchers', Controller.getAvailableVouchers)
 

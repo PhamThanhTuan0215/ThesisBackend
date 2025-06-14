@@ -3,6 +3,8 @@ const Router = express.Router()
 
 const Controller = require('../controllers/OrderReturn')
 
+const authenticateToken = require('../middlewares/auth');
+
 // Tạo yêu cầu hoàn trả
 Router.post('/request/:order_id', Controller.createReturnRequest)
 

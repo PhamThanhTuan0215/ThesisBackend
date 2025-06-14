@@ -3,6 +3,8 @@ const Router = express.Router()
 
 const Controller = require('../controllers/Wishlist')
 
+const authenticateToken = require('../middlewares/auth');
+
 Router.get('/', Controller.getWishlist); // user_id trong query
 
 Router.get('/product-ids', Controller.getProductIds); // user_id trong query

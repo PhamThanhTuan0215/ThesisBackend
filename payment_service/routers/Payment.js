@@ -3,6 +3,8 @@ const Router = express.Router()
 
 const Controller = require('../controllers/Payment')
 
+const authenticateToken = require('../middlewares/auth');
+
 // Payment Methods Routes
 Router.get('/methods', Controller.getPaymentMethods);
 Router.post('/methods', Controller.createPaymentMethod);

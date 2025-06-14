@@ -3,6 +3,8 @@ const Router = express.Router()
 
 const Controller = require('../controllers/Cart')
 
+const authenticateToken = require('../middlewares/auth');
+
 Router.get('/', Controller.getCart); // user_id trong query
 
 Router.get('/checkout', Controller.getCartToCheckout); // user_id trong query
