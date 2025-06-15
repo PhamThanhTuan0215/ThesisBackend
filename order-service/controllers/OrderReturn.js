@@ -358,7 +358,7 @@ exports.responseReturnRequest = async (req, res) => {
 // Lấy danh sách đơn hàng hoàn trả
 exports.getReturnedOrders = async (req, res) => {
     try {
-        const { seller_id, user_id } = req.query;
+        const { seller_id, user_id, order_status, payment_refund_status } = req.query;
         const where = {};
 
         if (seller_id) {
@@ -367,6 +367,26 @@ exports.getReturnedOrders = async (req, res) => {
 
         if (user_id) {
             where.user_id = user_id;
+        }
+        if (order_status) {
+            if (!['processing', 'returned', 'failed'].includes(order_status)) {
+                return res.status(400).json({
+                    code: 1,
+                    message: 'Trạng thái đơn hàng không hợp lệ'
+                });
+            }
+            console.log(order_status);
+            where.order_status = order_status;
+        }
+
+        if (payment_refund_status) {
+            if (!['pending', 'completed', 'failed'].includes(payment_refund_status)) {
+                return res.status(400).json({
+                    code: 1,
+                    message: 'Trạng thái hoàn tiền không hợp lệ'
+                });
+            }
+            where.payment_refund_status = payment_refund_status;
         }
 
         const returnedOrders = await ReturnedOrder.findAll({

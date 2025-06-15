@@ -501,3 +501,54 @@ module.exports.updateStoreLicense = async (req, res) => {
         });
     }
 };
+
+// Cập nhật balance của cửa hàng
+module.exports.updateStoreBalance = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { balance, type } = req.body; // type: 'add' hoặc 'subtract'
+        if (typeof balance !== 'number' || balance < 0) {
+            return res.status(400).json({
+                code: 1,
+                message: 'Balance phải là một số dương'
+            });
+        }
+
+        const store = await Store.findByPk(id);
+        if (!store) {
+            return res.status(404).json({
+                code: 1,
+                message: 'Không tìm thấy cửa hàng'
+            });
+        }
+        let newBalance = store.balance;
+        if (type === 'add') {
+            newBalance += balance;
+        } else if (type === 'subtract') {
+            if (newBalance < balance) {
+                return res.status(400).json({
+                    code: 1,
+                    message: 'Số dư không đủ để trừ'
+                });
+            }
+            newBalance -= balance;
+        } else {
+            return res.status(400).json({
+                code: 1,
+                message: 'Type không hợp lệ, chỉ chấp nhận "add" hoặc "subtract"'
+            });
+        }
+        await store.update({ balance: newBalance });
+        return res.status(200).json({
+            code: 0,
+            message: 'Cập nhật balance thành công',
+            data: await store.reload()
+        });
+    } catch (error) {
+        return res.status(500).json({
+            code: 2,
+            message: 'Lỗi server',
+            error: error.message
+        });
+    }
+};

@@ -13,6 +13,9 @@ Router.get('/', Controller.getAllStores);
 // Route lấy danh sách cửa hàng với danh sách store_id
 Router.post('/list', Controller.getStoresByIds);
 
+// Route cập nhật balance của cửa hàng
+Router.put('/:id/balance', Controller.updateStoreBalance);
+
 // Route lấy thông tin một cửa hàng
 Router.get('/:id', Controller.getStore);
 

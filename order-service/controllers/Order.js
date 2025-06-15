@@ -10,6 +10,7 @@ const axiosCustomerService = require('../services/customerService')
 const axiosDiscountService = require('../services/discountService')
 const axiosPaymentService = require('../services/paymentService')
 const axiosUserService = require('../services/userService')
+const axiosStoreService = require('../services/storeService')
 
 module.exports.getOrder = async (req, res) => {
     try {
@@ -228,6 +229,10 @@ module.exports.updateOrder = async (req, res) => {
             axiosProductService.put('/purchased-products/update-status', {
                 order_id: order.id,
                 status: 'completed'
+            });
+            axiosStoreService.put(`/stores/${order.seller_id}/balance`, {
+                balance: order.final_total * 0.75,
+                type: 'add',
             });
         }
 
@@ -519,10 +524,10 @@ const sendOrdersInfoEmail = async (token, user_id, orders_info) => {
                         </tr>
                         <tr>
                             <th>Tổng giảm giá từ voucher</th>
-                            <td>${formatPrice(Number(order.discount_amount_items || 0) + 
-                                Number(order.discount_amount_shipping || 0) + 
-                                Number(order.discount_amount_items_platform_allocated || 0) + 
-                                Number(order.discount_amount_shipping_platform_allocated || 0))}</td>
+                            <td>${formatPrice(Number(order.discount_amount_items || 0) +
+                Number(order.discount_amount_shipping || 0) +
+                Number(order.discount_amount_items_platform_allocated || 0) +
+                Number(order.discount_amount_shipping_platform_allocated || 0))}</td>
                         </tr>
                         <tr>
                             <th>Phương thức thanh toán</th>
