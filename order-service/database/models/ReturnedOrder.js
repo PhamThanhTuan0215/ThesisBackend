@@ -67,7 +67,7 @@ const ReturnedOrder = sequelize.define('ReturnedOrder', {
         type: DataTypes.STRING,
         allowNull: false,
         defaultValue: 'processing',
-        enum: ['processing', 'returned', 'failed'],
+        enum: ['processing', 'shipping', 'returned', 'failed'],
     },
     payment_refund_status: {
         type: DataTypes.STRING,
