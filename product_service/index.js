@@ -13,6 +13,7 @@ app.get('/', (req, res) => {
     return res.status(200).json({code: 0, message: 'Run product service successfully'})
 })
 
+app.use("/catalog-products", require("./routers/CatalogProduct"))
 app.use("/products", require("./routers/Product"))
 app.use("/product-types", require("./routers/ProductType"))
 app.use("/purchased-products", require("./routers/PurchasedProduct"))
