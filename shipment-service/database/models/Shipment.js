@@ -10,7 +10,13 @@ const Shipment = sequelize.define('Shipment', {
     order_id: {
         type: DataTypes.BIGINT,
         allowNull: false,
-        comment: 'ID đơn hàng từ service khác'
+        comment: 'ID đơn hàng gốc'
+    },
+    tracking_number: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true,
+        comment: 'Mã vận đơn'
     },
     shipping_provider_id: {
         type: DataTypes.BIGINT,
@@ -33,16 +39,17 @@ const Shipment = sequelize.define('Shipment', {
         allowNull: false,
         comment: 'ID địa chỉ nhận hàng'
     },
-    status: {
+    current_status: {
         type: DataTypes.STRING,
         allowNull: false,
-        defaultValue: 'pending',
-        comment: 'Trạng thái vận chuyển (pending, shipped, delivered, cancelled)'
+        defaultValue: 'WAITING_FOR_PICKUP',
+        comment: 'Trạng thái tổng vận đơn (Enum: SHIPPING_STATUS)'
     },
-    estimated_delivery: {
-        type: DataTypes.DATE,
+    progress: {
+        type: DataTypes.JSON,
         allowNull: false,
-        comment: 'Ngày dự kiến giao hàng'
+        defaultValue: [],
+        comment: 'Nhật ký quét mã (mỗi item gồm location, status, note, timestamp)'
     }
 }, {
     tableName: 'shipments',
@@ -52,10 +59,10 @@ const Shipment = sequelize.define('Shipment', {
             fields: ['order_id']
         },
         {
-            fields: ['shipping_provider_id']
+            fields: ['tracking_number']
         },
         {
-            fields: ['status']
+            fields: ['current_status']
         }
     ]
 });

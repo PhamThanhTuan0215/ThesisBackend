@@ -8,12 +8,13 @@ const ShippingFeeController = require('../controllers/ShippingFee');
 
 const authenticateToken = require('../middlewares/auth');
 
-// Shipment Routes
-Router.get('/shipping', ShipmentController.getShipments);
-Router.get('/shipping/:id', ShipmentController.getShipmentById);
-Router.post('/shipping', ShipmentController.createShipment);
-Router.put('/shipping/:id', ShipmentController.updateShipment);
-Router.delete('/shipping/:id', ShipmentController.deleteShipment);
+// Shipping Order (Shipment) Routes
+Router.post('/shipping-orders', ShipmentController.createShippingOrder); // Tạo vận đơn mới
+Router.get('/shipping-orders', ShipmentController.getShippingOrders); // Danh sách vận đơn
+Router.get('/shipping-orders/:id', ShipmentController.getShippingOrderById); // Lấy chi tiết vận đơn
+Router.post('/shipping-orders/:id/scan', ShipmentController.scanCheckpoint); // Quét mã checkpoint
+Router.get('/shipping-orders/:id/progress', ShipmentController.getProgress); // Lấy progress
+Router.patch('/shipping-orders/:id/status', ShipmentController.updateStatus); // Cập nhật trạng thái tổng
 
 // Shipping Provider Routes
 Router.get('/providers', ShippingProviderController.getShippingProviders);
