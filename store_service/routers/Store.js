@@ -31,8 +31,21 @@ Router.patch('/:id/avatar', Controller.uploadAvatar, Controller.updateStoreAvata
 // Route cập nhật banner của cửa hàng
 Router.patch('/:id/banner', Controller.uploadBanner, Controller.updateStoreBanner);
 
-// Route cập nhật giấy phép của cửa hàng
-Router.patch('/:id/license', Controller.uploadLicense, Controller.updateStoreLicense);
+// --- License routes ---
+// Thêm giấy phép mới cho cửa hàng (nếu muốn thêm ngoài 4 loại bắt buộc)
+Router.post('/:id/license', Controller.uploadLicense, Controller.addLicense);
+// Cập nhật giấy phép cụ thể
+Router.patch('/:id/license/:licenseId', Controller.uploadLicense, Controller.updateLicense);
+// Xóa giấy phép cụ thể
+Router.delete('/:id/license/:licenseId', Controller.deleteLicense);
+
+// --- Store photo routes ---
+// Thêm ảnh cửa hàng
+Router.post('/:id/photo', Controller.uploadLicense, Controller.addStorePhoto);
+// Cập nhật ảnh cửa hàng
+Router.patch('/:id/photo/:photoId', Controller.uploadLicense, Controller.updateStorePhoto);
+// Xóa ảnh cửa hàng
+Router.delete('/:id/photo/:photoId', Controller.deleteStorePhoto);
 
 // Route xóa cửa hàng
 Router.delete('/:id', Controller.deleteStore);

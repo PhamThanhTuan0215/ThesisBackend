@@ -35,10 +35,6 @@ const Store = sequelize.define('Store', {
         type: DataTypes.STRING,
         allowNull: false,
     },
-    address_line: {
-        type: DataTypes.STRING,
-        allowNull: false,
-    },
     province_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -66,10 +62,6 @@ const Store = sequelize.define('Store', {
     address_detail: {
         type: DataTypes.STRING,
         allowNull: false,
-    },
-    license_url: {
-        type: DataTypes.STRING,
-        allowNull: true,
     },
     balance: {
         type: DataTypes.INTEGER,

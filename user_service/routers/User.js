@@ -9,6 +9,8 @@ Router.get('/:id', Controller.getUserById);
 
 Router.post('/register', Controller.register);
 
+Router.post('/registerSeller', Controller.registerSeller);
+
 Router.post('/login', Controller.login);
 
 Router.put('/', authenticateToken, Controller.updateUser);

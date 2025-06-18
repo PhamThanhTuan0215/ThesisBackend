@@ -1,10 +1,12 @@
 const Store = require('../database/models/Store');
+const StoreLicense = require('../database/models/StoreLicense');
+const StorePhoto = require('../database/models/StorePhoto');
 const sendMail = require("../configs/sendMail.js")
-
 
 const { uploadFiles, deleteFile } = require('../utils/manageFilesOnCloudinary.js')
 
 const { Op } = require('sequelize');
+const sequelize = require('../database/sequelize');
 
 const multer = require('multer');
 const storage = multer.memoryStorage();
@@ -24,10 +26,15 @@ module.exports.uploadLicense = upload.single('license');
 // Middleware upload cho nhiều ảnh
 module.exports.uploadMultiple = upload.array('images', 10); // tối đa 10
 
+// Middleware upload cho từng loại giấy phép riêng biệt và nhiều ảnh cửa hàng
 module.exports.uploadCustom = upload.fields([
     { name: 'avatar', maxCount: 1 },
     { name: 'banner', maxCount: 1 },
-    { name: 'license', maxCount: 1 }
+    { name: 'business_registration_license', maxCount: 1 },
+    { name: 'pharmacist_certificate_license', maxCount: 1 },
+    { name: 'pharmacy_operation_certificate_license', maxCount: 1 },
+    { name: 'gpp_certificate_license', maxCount: 1 },
+    { name: 'store_photos', maxCount: 10 },
 ]);
 
 
@@ -58,10 +65,10 @@ const validateStoreData = (data, isCreate = false) => {
     }
 
     if (isCreate) {
-        if (!data.address_line) errors.push('Địa chỉ là bắt buộc');
-        if (!data.ward) errors.push('Phường/Xã là bắt buộc');
-        if (!data.district) errors.push('Quận/Huyện là bắt buộc');
-        if (!data.city) errors.push('Tỉnh/Thành phố là bắt buộc');
+        if (!data.address_detail) errors.push('Địa chỉ chi tiết là bắt buộc');
+        if (!data.ward_code || !data.ward_name) errors.push('Phường/Xã là bắt buộc');
+        if (!data.district_id || !data.district_name) errors.push('Quận/Huyện là bắt buộc');
+        if (!data.province_id || !data.province_name) errors.push('Tỉnh/Thành phố là bắt buộc');
     }
 
     return errors;
@@ -69,13 +76,23 @@ const validateStoreData = (data, isCreate = false) => {
 
 // Tạo cửa hàng mới
 module.exports.createStore = async (req, res) => {
+    const transaction = await sequelize.transaction();
     try {
         const storeData = { ...req.body };
 
         // Validate dữ liệu
         const validationErrors = validateStoreData(storeData, true);
-        if (!req.files?.license) {
-            validationErrors.push('Giấy phép kinh doanh là bắt buộc');
+        // Kiểm tra đủ 4 loại giấy phép
+        const licenseFields = [
+            'business_registration_license',
+            'pharmacist_certificate_license',
+            'pharmacy_operation_certificate_license',
+            'gpp_certificate_license'
+        ];
+        for (const field of licenseFields) {
+            if (!req.files?.[field] || req.files[field].length === 0) {
+                validationErrors.push(`Cần upload giấy phép: ${field}`);
+            }
         }
 
         if (validationErrors.length > 0) {
@@ -89,7 +106,6 @@ module.exports.createStore = async (req, res) => {
         // Upload ảnh lên Cloudinary
         let avatar_url = null;
         let banner_url = null;
-        let license_url = null;
 
         if (req.files) {
             if (req.files.avatar) {
@@ -100,27 +116,69 @@ module.exports.createStore = async (req, res) => {
                 const bannerResult = await uploadFiles([req.files.banner[0]], `${folderPathUpload}/banners`);
                 banner_url = bannerResult[0].secure_url;
             }
-            if (req.files.license) {
-                const licenseResult = await uploadFiles([req.files.license[0]], `${folderPathUpload}/licenses`);
-                license_url = licenseResult[0].secure_url;
-            }
         }
 
+        // Tạo cửa hàng
         const store = await Store.create({
             ...storeData,
             avatar_url,
             banner_url,
-            license_url,
             status: 'pending'
-        });
+        }, { transaction });
+
+        // Tạo 4 bản ghi StoreLicense tương ứng
+        const licenseTypeMap = {
+            business_registration_license: 'BUSINESS_REGISTRATION',
+            pharmacist_certificate_license: 'PHARMACIST_CERTIFICATE',
+            pharmacy_operation_certificate_license: 'PHARMACY_OPERATION_CERTIFICATE',
+            gpp_certificate_license: 'GPP_CERTIFICATE'
+        };
+        for (const field of licenseFields) {
+            const file = req.files[field][0];
+            const licenseResult = await uploadFiles([file], `${folderPathUpload}/licenses`);
+            const license_url = licenseResult[0].secure_url;
+            // Lấy metadata nếu có
+            const license_number = req.body[`${field}_number`] || null;
+            const issued_date = req.body[`${field}_issued_date`] || null;
+            const expired_date = req.body[`${field}_expired_date`] || null;
+            await StoreLicense.create({
+                store_id: store.id,
+                license_type: licenseTypeMap[field],
+                license_number,
+                license_url,
+                issued_date,
+                expired_date,
+                status: 'pending'
+            }, { transaction });
+        }
+
+        // Xử lý ảnh cửa hàng
+        if (req.files?.store_photos && req.files.store_photos.length > 0) {
+            const photos = req.files.store_photos;
+            const photosResult = await uploadFiles(photos, `${folderPathUpload}/photos`);
+            let descriptions = req.body.photo_descriptions;
+            if (!Array.isArray(descriptions)) descriptions = [descriptions];
+            const storePhotos = photosResult.map((photo, idx) => ({
+                store_id: store.id,
+                photo_url: photo.secure_url,
+                description: descriptions[idx] || ''
+            }));
+            await StorePhoto.bulkCreate(storePhotos, { transaction });
+        }
+
+        await transaction.commit();
+
+        // Lấy thông tin đầy đủ của cửa hàng
+        const storeWithDetails = await getStoreWithDetails(store.id);
 
         return res.status(201).json({
             code: 0,
             message: 'Tạo cửa hàng thành công',
-            data: store
+            data: storeWithDetails
         });
 
     } catch (error) {
+        await transaction.rollback();
         return res.status(500).json({
             code: 2,
             message: 'Lỗi server',
@@ -129,13 +187,33 @@ module.exports.createStore = async (req, res) => {
     }
 };
 
+// Hàm lấy thông tin đầy đủ của cửa hàng
+const getStoreWithDetails = async (storeId) => {
+    const store = await Store.findByPk(storeId);
+    if (!store) return null;
+
+    const licenses = await StoreLicense.findAll({
+        where: { store_id: storeId }
+    });
+
+    const photos = await StorePhoto.findAll({
+        where: { store_id: storeId }
+    });
+
+    return {
+        ...store.toJSON(),
+        licenses,
+        photos
+    };
+};
+
 // Lấy thông tin một cửa hàng
 module.exports.getStore = async (req, res) => {
     try {
         const { id } = req.params;
-        const store = await Store.findByPk(id);
+        const storeWithDetails = await getStoreWithDetails(id);
 
-        if (!store) {
+        if (!storeWithDetails) {
             return res.status(404).json({
                 code: 1,
                 message: 'Không tìm thấy cửa hàng'
@@ -145,7 +223,7 @@ module.exports.getStore = async (req, res) => {
         return res.status(200).json({
             code: 0,
             message: 'Lấy thông tin cửa hàng thành công',
-            data: store
+            data: storeWithDetails
         });
 
     } catch (error) {
@@ -199,7 +277,7 @@ module.exports.getAllStores = async (req, res) => {
 module.exports.getStoresByIds = async (req, res) => {
     try {
         const { store_ids } = req.body;
-        
+
         const stores = await Store.findAll({
             where: {
                 id: {
@@ -232,7 +310,8 @@ module.exports.updateStore = async (req, res) => {
         delete updateData.status;
         delete updateData.avatar_url;
         delete updateData.banner_url;
-        delete updateData.license_url;
+        delete updateData.balance;
+        delete updateData.owner_id;
 
         // Validate dữ liệu cập nhật
         const validationErrors = validateStoreData(updateData, false);
@@ -253,11 +332,12 @@ module.exports.updateStore = async (req, res) => {
         }
 
         await store.update(updateData);
+        const storeWithDetails = await getStoreWithDetails(id);
 
         return res.status(200).json({
             code: 0,
             message: 'Cập nhật thông tin cửa hàng thành công',
-            data: await store.reload()
+            data: storeWithDetails
         });
 
     } catch (error) {
@@ -303,10 +383,12 @@ module.exports.updateStoreStatus = async (req, res) => {
             `
         });
 
+        const storeWithDetails = await getStoreWithDetails(id);
+
         return res.status(200).json({
             code: 0,
             message: 'Cập nhật trạng thái cửa hàng thành công',
-            data: await store.reload()
+            data: storeWithDetails
         });
 
     } catch (error) {
@@ -320,6 +402,7 @@ module.exports.updateStoreStatus = async (req, res) => {
 
 // Xóa cửa hàng
 module.exports.deleteStore = async (req, res) => {
+    const transaction = await sequelize.transaction();
     try {
         const { id } = req.params;
 
@@ -340,12 +423,35 @@ module.exports.deleteStore = async (req, res) => {
             const bannerPublicId = store.banner_url.split('/').pop().split('.')[0];
             await deleteFile(`${folderPathUpload}/banners/${bannerPublicId}`);
         }
-        if (store.license_url) {
-            const licensePublicId = store.license_url.split('/').pop().split('.')[0];
-            await deleteFile(`${folderPathUpload}/licenses/${licensePublicId}`);
+
+        // Xóa tất cả giấy phép
+        const licenses = await StoreLicense.findAll({
+            where: { store_id: id }
+        });
+
+        for (const license of licenses) {
+            if (license.license_url) {
+                const licensePublicId = license.license_url.split('/').pop().split('.')[0];
+                await deleteFile(`${folderPathUpload}/licenses/${licensePublicId}`);
+            }
+            await license.destroy({ transaction });
         }
 
-        await store.destroy();
+        // Xóa tất cả ảnh cửa hàng
+        const photos = await StorePhoto.findAll({
+            where: { store_id: id }
+        });
+
+        for (const photo of photos) {
+            if (photo.photo_url) {
+                const photoPublicId = photo.photo_url.split('/').pop().split('.')[0];
+                await deleteFile(`${folderPathUpload}/photos/${photoPublicId}`);
+            }
+            await photo.destroy({ transaction });
+        }
+
+        await store.destroy({ transaction });
+        await transaction.commit();
 
         return res.status(200).json({
             code: 0,
@@ -353,6 +459,7 @@ module.exports.deleteStore = async (req, res) => {
         });
 
     } catch (error) {
+        await transaction.rollback();
         return res.status(500).json({
             code: 2,
             message: 'Lỗi server',
@@ -392,11 +499,12 @@ module.exports.updateStoreAvatar = async (req, res) => {
         }
 
         await store.update({ avatar_url });
+        const storeWithDetails = await getStoreWithDetails(id);
 
         return res.status(200).json({
             code: 0,
             message: 'Cập nhật avatar thành công',
-            data: await store.reload()
+            data: storeWithDetails
         });
 
     } catch (error) {
@@ -439,11 +547,12 @@ module.exports.updateStoreBanner = async (req, res) => {
         }
 
         await store.update({ banner_url });
+        const storeWithDetails = await getStoreWithDetails(id);
 
         return res.status(200).json({
             code: 0,
             message: 'Cập nhật banner thành công',
-            data: await store.reload()
+            data: storeWithDetails
         });
 
     } catch (error) {
@@ -455,15 +564,23 @@ module.exports.updateStoreBanner = async (req, res) => {
     }
 };
 
-// Cập nhật giấy phép của cửa hàng
-module.exports.updateStoreLicense = async (req, res) => {
+// Thêm giấy phép mới
+module.exports.addLicense = async (req, res) => {
     try {
         const { id } = req.params;
+        const { license_type, license_number, issued_date, expired_date } = req.body;
 
         if (!req.file) {
             return res.status(400).json({
                 code: 1,
                 message: 'Vui lòng upload ảnh giấy phép'
+            });
+        }
+
+        if (!license_type || !['BUSINESS_REGISTRATION', 'PHARMACIST_CERTIFICATE', 'PHARMACY_OPERATION_CERTIFICATE', 'GPP_CERTIFICATE'].includes(license_type)) {
+            return res.status(400).json({
+                code: 1,
+                message: 'Loại giấy phép không hợp lệ'
             });
         }
 
@@ -475,22 +592,310 @@ module.exports.updateStoreLicense = async (req, res) => {
             });
         }
 
-        // Upload ảnh mới
+        // Upload ảnh giấy phép
         const licenseResult = await uploadFiles([req.file], `${folderPathUpload}/licenses`);
         const license_url = licenseResult[0].secure_url;
 
-        // Xóa ảnh cũ nếu có
-        if (store.license_url) {
-            const oldLicensePublicId = store.license_url.split('/').pop().split('.')[0];
-            await deleteFile(`${folderPathUpload}/licenses/${oldLicensePublicId}`);
+        const license = await StoreLicense.create({
+            store_id: id,
+            license_type,
+            license_number: license_number || null,
+            license_url,
+            issued_date: issued_date || null,
+            expired_date: expired_date || null,
+            status: 'pending'
+        });
+
+        const storeWithDetails = await getStoreWithDetails(id);
+
+        return res.status(201).json({
+            code: 0,
+            message: 'Thêm giấy phép thành công',
+            data: storeWithDetails
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            code: 2,
+            message: 'Lỗi server',
+            error: error.message
+        });
+    }
+};
+
+// Cập nhật giấy phép
+module.exports.updateLicense = async (req, res) => {
+    try {
+        const { id, licenseId } = req.params;
+        const { license_type, license_number, issued_date, expired_date, status } = req.body;
+
+        const store = await Store.findByPk(id);
+        if (!store) {
+            return res.status(404).json({
+                code: 1,
+                message: 'Không tìm thấy cửa hàng'
+            });
         }
 
-        await store.update({ license_url });
+        const license = await StoreLicense.findOne({
+            where: {
+                id: licenseId,
+                store_id: id
+            }
+        });
+
+        if (!license) {
+            return res.status(404).json({
+                code: 1,
+                message: 'Không tìm thấy giấy phép'
+            });
+        }
+
+        // Dữ liệu cập nhật
+        const updateData = {};
+
+        if (license_type && ['BUSINESS_REGISTRATION', 'PHARMACIST_CERTIFICATE', 'PHARMACY_OPERATION_CERTIFICATE', 'GPP_CERTIFICATE'].includes(license_type)) {
+            updateData.license_type = license_type;
+        }
+
+        if (license_number !== undefined) updateData.license_number = license_number;
+        if (issued_date !== undefined) updateData.issued_date = issued_date;
+        if (expired_date !== undefined) updateData.expired_date = expired_date;
+        if (status && ['pending', 'approved', 'rejected', 'expired'].includes(status)) {
+            updateData.status = status;
+        }
+
+        // Nếu có file mới
+        if (req.file) {
+            const licenseResult = await uploadFiles([req.file], `${folderPathUpload}/licenses`);
+            updateData.license_url = licenseResult[0].secure_url;
+
+            // Xóa ảnh cũ nếu có
+            if (license.license_url) {
+                const oldLicensePublicId = license.license_url.split('/').pop().split('.')[0];
+                await deleteFile(`${folderPathUpload}/licenses/${oldLicensePublicId}`);
+            }
+        }
+
+        await license.update(updateData);
+        const storeWithDetails = await getStoreWithDetails(id);
 
         return res.status(200).json({
             code: 0,
             message: 'Cập nhật giấy phép thành công',
-            data: await store.reload()
+            data: storeWithDetails
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            code: 2,
+            message: 'Lỗi server',
+            error: error.message
+        });
+    }
+};
+
+// Xóa giấy phép
+module.exports.deleteLicense = async (req, res) => {
+    try {
+        const { id, licenseId } = req.params;
+
+        const store = await Store.findByPk(id);
+        if (!store) {
+            return res.status(404).json({
+                code: 1,
+                message: 'Không tìm thấy cửa hàng'
+            });
+        }
+
+        const license = await StoreLicense.findOne({
+            where: {
+                id: licenseId,
+                store_id: id
+            }
+        });
+
+        if (!license) {
+            return res.status(404).json({
+                code: 1,
+                message: 'Không tìm thấy giấy phép'
+            });
+        }
+
+        // Xóa ảnh trên Cloudinary
+        if (license.license_url) {
+            const licensePublicId = license.license_url.split('/').pop().split('.')[0];
+            await deleteFile(`${folderPathUpload}/licenses/${licensePublicId}`);
+        }
+
+        await license.destroy();
+        const storeWithDetails = await getStoreWithDetails(id);
+
+        return res.status(200).json({
+            code: 0,
+            message: 'Xóa giấy phép thành công',
+            data: storeWithDetails
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            code: 2,
+            message: 'Lỗi server',
+            error: error.message
+        });
+    }
+};
+
+// Thêm ảnh cửa hàng
+module.exports.addStorePhoto = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { description } = req.body;
+
+        if (!req.file) {
+            return res.status(400).json({
+                code: 1,
+                message: 'Vui lòng upload ảnh cửa hàng'
+            });
+        }
+
+        const store = await Store.findByPk(id);
+        if (!store) {
+            return res.status(404).json({
+                code: 1,
+                message: 'Không tìm thấy cửa hàng'
+            });
+        }
+
+        // Upload ảnh
+        const photoResult = await uploadFiles([req.file], `${folderPathUpload}/photos`);
+        const photo_url = photoResult[0].secure_url;
+
+        const photo = await StorePhoto.create({
+            store_id: id,
+            photo_url,
+            description: description || null
+        });
+
+        const storeWithDetails = await getStoreWithDetails(id);
+
+        return res.status(201).json({
+            code: 0,
+            message: 'Thêm ảnh cửa hàng thành công',
+            data: storeWithDetails
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            code: 2,
+            message: 'Lỗi server',
+            error: error.message
+        });
+    }
+};
+
+// Cập nhật ảnh cửa hàng
+module.exports.updateStorePhoto = async (req, res) => {
+    try {
+        const { id, photoId } = req.params;
+        const { description } = req.body;
+
+        const store = await Store.findByPk(id);
+        if (!store) {
+            return res.status(404).json({
+                code: 1,
+                message: 'Không tìm thấy cửa hàng'
+            });
+        }
+
+        const photo = await StorePhoto.findOne({
+            where: {
+                id: photoId,
+                store_id: id
+            }
+        });
+
+        if (!photo) {
+            return res.status(404).json({
+                code: 1,
+                message: 'Không tìm thấy ảnh cửa hàng'
+            });
+        }
+
+        // Dữ liệu cập nhật
+        const updateData = {};
+        if (description !== undefined) updateData.description = description;
+
+        // Nếu có file mới
+        if (req.file) {
+            const photoResult = await uploadFiles([req.file], `${folderPathUpload}/photos`);
+            updateData.photo_url = photoResult[0].secure_url;
+
+            // Xóa ảnh cũ
+            if (photo.photo_url) {
+                const oldPhotoPublicId = photo.photo_url.split('/').pop().split('.')[0];
+                await deleteFile(`${folderPathUpload}/photos/${oldPhotoPublicId}`);
+            }
+        }
+
+        await photo.update(updateData);
+        const storeWithDetails = await getStoreWithDetails(id);
+
+        return res.status(200).json({
+            code: 0,
+            message: 'Cập nhật ảnh cửa hàng thành công',
+            data: storeWithDetails
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            code: 2,
+            message: 'Lỗi server',
+            error: error.message
+        });
+    }
+};
+
+// Xóa ảnh cửa hàng
+module.exports.deleteStorePhoto = async (req, res) => {
+    try {
+        const { id, photoId } = req.params;
+
+        const store = await Store.findByPk(id);
+        if (!store) {
+            return res.status(404).json({
+                code: 1,
+                message: 'Không tìm thấy cửa hàng'
+            });
+        }
+
+        const photo = await StorePhoto.findOne({
+            where: {
+                id: photoId,
+                store_id: id
+            }
+        });
+
+        if (!photo) {
+            return res.status(404).json({
+                code: 1,
+                message: 'Không tìm thấy ảnh cửa hàng'
+            });
+        }
+
+        // Xóa ảnh trên Cloudinary
+        if (photo.photo_url) {
+            const photoPublicId = photo.photo_url.split('/').pop().split('.')[0];
+            await deleteFile(`${folderPathUpload}/photos/${photoPublicId}`);
+        }
+
+        await photo.destroy();
+        const storeWithDetails = await getStoreWithDetails(id);
+
+        return res.status(200).json({
+            code: 0,
+            message: 'Xóa ảnh cửa hàng thành công',
+            data: storeWithDetails
         });
 
     } catch (error) {
@@ -539,10 +944,12 @@ module.exports.updateStoreBalance = async (req, res) => {
             });
         }
         await store.update({ balance: newBalance });
+        const storeWithDetails = await getStoreWithDetails(id);
+
         return res.status(200).json({
             code: 0,
             message: 'Cập nhật balance thành công',
-            data: await store.reload()
+            data: storeWithDetails
         });
     } catch (error) {
         return res.status(500).json({

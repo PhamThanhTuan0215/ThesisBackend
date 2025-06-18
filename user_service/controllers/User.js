@@ -78,6 +78,27 @@ module.exports.register = async (req, res) => {
     }
 }
 
+module.exports.registerSeller = async (req, res) => {
+    try {
+        const { email, fullname, phone, password, role } = req.body;
+        const existingUser = await User.findOne({ where: { email } });
+        if (existingUser) {
+            return res.status(400).json({ code: 1, message: 'Email đã tồn tại' });
+        }
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newUser = await User.create({
+            email,
+            password: hashedPassword,
+            fullname,
+            phone,
+            role
+        });
+        return res.status(201).json({ code: 0, message: 'Đăng ký thành công', data: newUser });
+    } catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lỗi server', error: error.message });
+    }
+}
+
 module.exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
