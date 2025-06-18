@@ -2,6 +2,7 @@ const ProductType = require('../database/models/ProductType')
 const Category = require('../database/models/Category')
 const CatalogProduct = require('../database/models/CatalogProduct')
 const Product = require('../database/models/Product')
+const Promotion = require('../database/models/Promotion')
 
 const { uploadFiles, deleteFile } = require('../ultis/manageFilesOnCloudinary')
 
@@ -130,20 +131,32 @@ module.exports.getAllProducts = async (req, res) => {
             offset,
             order,
             attributes,
-            include: [{
-                model: CatalogProduct,
-                required: true, // inner join
-                where: catalogProductConditions
-            }]
+            include: [
+                {
+                    model: CatalogProduct,
+                    required: true, // inner join
+                    where: catalogProductConditions
+                },
+                {
+                    model: Promotion,
+                    through: { attributes: ['custom_start_date', 'custom_end_date', 'custom_value'] }, // Lấy các trường từ bảng PromotionProduct
+                }
+            ]
         });
 
         const total = await Product.count({
             where: productConditions,
-            include: [{
-                model: CatalogProduct,
-                required: true,
-                where: catalogProductConditions
-            }]
+            include: [
+                {
+                    model: CatalogProduct,
+                    required: true,
+                    where: catalogProductConditions
+                },
+                {
+                    model: Promotion,
+                    through: { attributes: ['custom_start_date', 'custom_end_date', 'custom_value'] }, // Lấy các trường từ bảng PromotionProduct
+                }
+            ]
         });
 
         const formattedProducts = products.map(product => formatProduct(product));
@@ -162,9 +175,15 @@ module.exports.getProductById = async (req, res) => {
 
         // join với bảng CatalogProduct để lấy thêm các trường của CatalogProduct
         const product = await Product.findByPk(id, {
-            include: [{
-                model: CatalogProduct
-            }]
+            include: [
+                {
+                    model: CatalogProduct
+                },
+                {
+                    model: Promotion,
+                    through: { attributes: ['custom_start_date', 'custom_end_date', 'custom_value'] }, // Lấy các trường từ bảng PromotionProduct
+                }
+            ]
         });
 
         if (!product) {
@@ -190,9 +209,15 @@ module.exports.getProductByIdForCustomer = async (req, res) => {
             attributes: {
                 exclude: ['import_price', 'import_date', 'url_import_invoice']
             },
-            include: [{
-                model: CatalogProduct
-            }]
+            include: [
+                {
+                    model: CatalogProduct
+                },
+                {
+                    model: Promotion,
+                    through: { attributes: ['custom_start_date', 'custom_end_date', 'custom_value'] }, // Lấy các trường từ bảng PromotionProduct
+                }
+            ]
         });
 
         if (!product) {
@@ -570,10 +595,11 @@ function formatProduct(product) {
         url_registration_license: product.CatalogProduct?.url_registration_license,
         product_type_id: product.CatalogProduct?.product_type_id,
         category_id: product.CatalogProduct?.category_id,
-        product_details: product.CatalogProduct?.product_details
+        product_details: product.CatalogProduct?.product_details,
     };
 
     delete formattedProduct.CatalogProduct;
+    delete formattedProduct.Promotions;
 
     return formattedProduct;
 }

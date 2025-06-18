@@ -2,6 +2,8 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../sequelize');
 
 const CatalogProduct = require('./CatalogProduct')
+const Promotion = require('./Promotion');
+const PromotionProduct = require('./PromotionProduct');
 
 const Product = sequelize.define('Product', {
     id: {
@@ -92,12 +94,12 @@ const Product = sequelize.define('Product', {
             }
         }
     },
-    promotion_type: {
+    promotion_name: {
         type: DataTypes.STRING,
         allowNull: false,
         defaultValue: "none"
-    }, // kiểu khuyến mãi (none: không có khuyến mãi, flash_sale: khuyến mãi flash sale, ...)
-    promotion_value: {
+    }, // tên khuyến mãi (none: không có khuyến mãi, flash_sale: khuyến mãi flash sale, ...)
+    promotion_value_percent: {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
         defaultValue: 0,
@@ -130,30 +132,61 @@ Product.beforeSave(async (product, options) => {
     product.actual_price = product.retail_price;
 });
 
-// // tính toán giá thực tế sau khi áp dụng khuyến mãi trước khi trả về kết quả (để có thể linh hoạt thay đổi giá trị hiển thị mà không cần phải chỉnh sửa)
-Product.addHook('afterFind', (result, options) => {
+
+Product.belongsTo(CatalogProduct, { foreignKey: 'catalog_product_id' });
+Product.belongsToMany(Promotion, { through: PromotionProduct, foreignKey: 'product_id', otherKey: 'promotion_id' });
+PromotionProduct.belongsTo(Product, { foreignKey: 'product_id' });
+
+Product.addHook('afterFind', async (result, options) => {
     const now = new Date();
 
-    const applyActualPrice = (p) => {
-        if (!p) return;
+    const applyPromotionData = (product) => {
+        if (!product) return;
 
-        const isPromotionActive =
-            p.promotion_type !== "none" &&
-            (!p.promotion_start_date || p.promotion_start_date <= now) &&
-            (!p.promotion_end_date || p.promotion_end_date >= now);
+        // Find the active promotion for the product
+        const activePromotion = product.Promotions?.find(promotion => {
+            const promoProduct = promotion.PromotionProduct;
+            const promoStartDate = promoProduct.custom_start_date || promotion.start_date;
+            const promoEndDate = promoProduct.custom_end_date || promotion.end_date;
 
-        p.actual_price = isPromotionActive
-            ? Number(p.retail_price) * (1 - Number(p.promotion_value) / 100)
-            : Number(p.retail_price);
+            return (
+                promotion.status === 'active' &&
+                (!promoStartDate || new Date(promoStartDate) <= now) &&
+                (!promoEndDate || new Date(promoEndDate) >= now)
+            );
+        });
+
+        if (activePromotion) {
+            product.promotion_name = activePromotion.name;
+            product.promotion_start_date = activePromotion.PromotionProduct?.custom_start_date || activePromotion.start_date;
+            product.promotion_end_date = activePromotion.PromotionProduct?.custom_end_date || activePromotion.end_date;
+
+            const promotion_value = activePromotion.PromotionProduct?.custom_value || activePromotion.value;
+
+            // Calculate promotion value based on type
+            if (activePromotion.type === 'fixed') {
+                product.promotion_value_percent = (Number(promotion_value) / Number(product.retail_price)) * 100;
+            } else if (activePromotion.type === 'percent') {
+                product.promotion_value_percent = Number(promotion_value);
+            }
+
+            // Calculate actual price
+            product.actual_price = Number(product.retail_price) * (1 - Number(product.promotion_value_percent) / 100);
+        } else {
+            // No active promotion
+            product.promotion_name = 'none';
+            product.promotion_value_percent = 0;
+            product.promotion_start_date = null;
+            product.promotion_end_date = null;
+            product.actual_price = Number(product.retail_price);
+        }
     };
 
     if (Array.isArray(result)) {
-        result.forEach(applyActualPrice);
-    } else {
-        applyActualPrice(result);
+        result.forEach(applyPromotionData);
+    } else if (result) {
+        applyPromotionData(result);
     }
 });
-
-Product.belongsTo(CatalogProduct, { foreignKey: 'catalog_product_id' });
 
 module.exports = Product;
