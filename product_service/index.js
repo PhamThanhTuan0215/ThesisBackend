@@ -14,6 +14,7 @@ app.get('/', (req, res) => {
 })
 
 app.use("/catalog-products", require("./routers/CatalogProduct"))
+app.use("/suggestion-products", require("./routers/SuggestionProduct"))
 app.use("/products", require("./routers/Product"))
 app.use("/product-types", require("./routers/ProductType"))
 app.use("/purchased-products", require("./routers/PurchasedProduct"))
