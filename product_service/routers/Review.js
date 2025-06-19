@@ -9,9 +9,9 @@ Router.get('/:product_id', Controller.getReviewByProductId);
 
 Router.post('/add/:product_id', Controller.uploadCustom, Controller.writeReview);   // tạm thời dùng trực tiếp thông tin của user trong query, về sau thay bằng việc lấy thông tin user từ token ở header
 
-Router.post('/update/:product_id', Controller.uploadCustom, Controller.updateReview);
+Router.put('/update/:review_id', Controller.uploadCustom, Controller.updateReview);
 
-Router.delete('/delete/:review_id', Controller.deleteReview);   // tạm thời dùng trực tiếp thông tin của user trong query
+// Router.delete('/delete/:review_id', Controller.deleteReview);   // tính năng này ko tồn tại trên các sàn TMDT phổ biến
 
 Router.delete('/delete-by-manager/:review_id', Controller.deleteReviewByManager);
 

@@ -173,7 +173,96 @@ module.exports.writeReview = async (req, res) => {
 }
 
 module.exports.updateReview = async (req, res) => {
+    let new_public_id_image_related = null
 
+    try {
+        const { review_id } = req.params;
+        const { rating, comment } = req.body;
+
+        const errors = [];
+
+        if (!rating || isNaN(rating) || rating < 1) errors.push('rating phải là số và lớn hơn hoặc bằng 1');
+        if (!comment || comment === '') errors.push('comment cần cung cấp');
+        if (!review_id || review_id <= 0) errors.push('review_id cần cung cấp');
+
+        const review = await Review.findByPk(review_id);
+
+        if(!review) {
+            return res.status(404).json({ code: 1, message: 'Đánh giá không tồn tại' });
+        }
+
+        if(review.is_edited) {
+            return res.status(400).json({ code: 1, message: 'Chỉ có thể chỉnh sửa đánh giá 1 lần' });
+        }
+
+        const purchasedProduct = await PurchasedProduct.findOne({
+            where: {
+                user_id: review.user_id,
+                product_id: review.product_id,
+                order_id: review.order_id
+            },
+            order: [['updatedAt', 'DESC']]
+        })
+
+        if (!purchasedProduct) {
+            return res.status(400).json({ code: 1, message: 'Chưa đủ điều kiện để đánh giá sản phẩm' });
+        }
+
+        if (purchasedProduct.status !== 'completed') {
+            return res.status(400).json({ code: 1, message: 'Chưa hoàn tất quá trình mua sản phẩm' });
+        }
+
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 ngày trước
+        if (purchasedProduct.updatedAt < thirtyDaysAgo) {
+            return res.status(400).json({ code: 1, message: 'Chỉ có thể chỉnh sửa đánh giá sản phẩm đã mua dưới 30 ngày' });
+        }
+
+        let image_related_file = null;
+
+        if (req.files && req.files['image_related']) {
+            image_related_file = req.files && req.files['image_related'] && req.files['image_related'][0];
+        }
+
+        let old_public_id_image_related = null;
+
+        if (image_related_file) {
+
+            // Lấy public id trước đó của ảnh
+            if (review.url_image_related) {
+                old_public_id_image_related = extractFolderFromURL(review.url_image_related) + review.url_image_related.split('/').pop().split('.')[0];
+            }
+
+            const filesToUpload = [image_related_file];
+            const results = await uploadFiles(filesToUpload, folderPathUpload);
+
+            const result_image_related_file = results[0];
+
+            // cập nhật url mới trong DB
+            review.url_image_related = result_image_related_file.secure_url;
+
+            new_public_id_image_related = result_image_related_file.public_id;
+        }
+
+        review.comment = comment;
+        review.rating = rating;
+        review.is_edited = true;
+
+        await review.save();
+
+        if (old_public_id_image_related && new_public_id_image_related) {
+            deleteFile(old_public_id_image_related);
+        }
+
+        return res.status(200).json({ code: 0, message: 'Chỉnh sửa đánh giá thành công', data: review });
+    }
+    catch (error) {
+        if (new_public_id_image_related) {
+            deleteFile(new_public_id_image_related);
+        }
+
+        return res.status(500).json({ code: 2, message: 'Chỉnh sửa đánh giá thất bại', error: error.message });
+    }
 }
 
 module.exports.deleteReview = async (req, res) => {
@@ -311,7 +400,7 @@ module.exports.updateResponseReview = async (req, res) => {
         }
 
         if(responseReview.is_edited) {
-            return res.status(404).json({ code: 1, message: 'Chỉ cho phép chỉnh sửa phản hồi 1 lần cho mỗi đánh giá' });
+            return res.status(400).json({ code: 1, message: 'Chỉ cho phép chỉnh sửa phản hồi 1 lần cho mỗi đánh giá' });
         }
 
         let image_related_file = null;
@@ -351,8 +440,8 @@ module.exports.updateResponseReview = async (req, res) => {
         return res.status(200).json({ code: 0, message: 'Cập nhật phản hồi đánh giá thành công', data: responseReview });
     }
     catch (error) {
-        if (new_public_id_import_invoice) {
-            deleteFile(new_public_id_import_invoice);
+        if (new_public_id_image_related) {
+            deleteFile(new_public_id_image_related);
         }
 
         return res.status(500).json({ code: 2, message: 'Cập nhật phản hồi đánh giá thất bại', error: error.message });
