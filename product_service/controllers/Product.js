@@ -29,7 +29,7 @@ module.exports.uploadCustom = upload.fields([
 module.exports.getAllProducts = async (req, res) => {
     try {
         const { seller_id } = req.query
-        const { name, brand, approval_status, active_status, platform_active_status, product_type_name, category_name, sort_price, page, limit, is_for_customer, promotion_name } = req.query;
+        const { name, brand, approval_status, active_status, platform_active_status, product_type_name, category_name, sort_price, page, limit, is_for_customer } = req.query;
 
         // Áp dụng điều kiện lọc
         const productConditions = {}; // Conditions for Product model
@@ -125,61 +125,38 @@ module.exports.getAllProducts = async (req, res) => {
             catalogProductConditions.active_status = 'active';
         }
 
-        const productInclude = [
-            {
-                model: CatalogProduct,
-                required: true, // inner join
-                where: catalogProductConditions
-            }
-        ];
-
-        if (promotion_name) {
-            // thêm điều kiện sản phẩm đang có khuyến mãi thõa mãn tên khuyến mãi và khuyến mãi này đang khả dụng
-            const now = new Date();
-            productInclude.push({
-                model: Promotion,
-                through: { attributes: ['custom_start_date', 'custom_end_date', 'custom_value'] },
-                where: {
-                    name: promotion_name,
-                    status: 'active',
-                    [Op.and]: [
-                        {
-                            [Op.or]: [
-                                { '$Promotions.PromotionProduct.custom_start_date$': { [Op.lte]: now } },
-                                { '$Promotions.start_date$': { [Op.lte]: now } },
-                                { '$Promotions.PromotionProduct.custom_start_date$': null, '$Promotions.start_date$': null }
-                            ]
-                        },
-                        {
-                            [Op.or]: [
-                                { '$Promotions.PromotionProduct.custom_end_date$': { [Op.gte]: now } },
-                                { '$Promotions.end_date$': { [Op.gte]: now } },
-                                { '$Promotions.PromotionProduct.custom_end_date$': null, '$Promotions.end_date$': null }
-                            ]
-                        }
-                    ]
-                },
-            });
-        } else {
-            productInclude.push({
-                model: Promotion,
-                through: { attributes: ['custom_start_date', 'custom_end_date', 'custom_value'] },
-                required: false // LEFT JOIN when no promotion_name is provided
-            });
-        }
-
         const products = await Product.findAll({
             where: productConditions,
             limit: limitNumber,
             offset,
             order,
             attributes,
-            include: productInclude
+            include: [
+                {
+                    model: CatalogProduct,
+                    required: true, // inner join
+                    where: catalogProductConditions
+                },
+                {
+                    model: Promotion,
+                    through: { attributes: ['custom_start_date', 'custom_end_date', 'custom_value'] }, // Lấy các trường từ bảng PromotionProduct
+                }
+            ]
         });
 
         const total = await Product.count({
             where: productConditions,
-            include: productInclude
+            include: [
+                {
+                    model: CatalogProduct,
+                    required: true,
+                    where: catalogProductConditions
+                },
+                {
+                    model: Promotion,
+                    through: { attributes: ['custom_start_date', 'custom_end_date', 'custom_value'] }, // Lấy các trường từ bảng PromotionProduct
+                }
+            ]
         });
 
         const formattedProducts = products.map(product => formatProduct(product));
