@@ -30,6 +30,11 @@ const ResponseReview = sequelize.define('ResponseReview', {
     url_image_related: {
         type: DataTypes.STRING,
         allowNull: true,
+    },
+    is_edited: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
     }
 }, {
     tableName: 'response_reviews'

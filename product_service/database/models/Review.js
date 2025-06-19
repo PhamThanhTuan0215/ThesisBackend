@@ -49,6 +49,11 @@ const Review = sequelize.define('Review', {
     url_image_related: {
         type: DataTypes.STRING,
         allowNull: true,
+    },
+    is_edited: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
     }
 }, {
     tableName: 'reviews'

@@ -86,7 +86,7 @@ module.exports.writeReview = async (req, res) => {
     try {
         const { user_id, user_fullname } = req.query;
         const { product_id } = req.params;
-        const { rating, comment } = req.body;
+        const { rating, comment, order_id } = req.body;
 
         const errors = [];
 
@@ -94,6 +94,7 @@ module.exports.writeReview = async (req, res) => {
         if (!user_fullname || user_fullname === '') errors.push('user_fullname cần cung cấp');
         if (!rating || isNaN(rating) || rating < 1) errors.push('rating phải là số và lớn hơn hoặc bằng 1');
         if (!comment || comment === '') errors.push('comment cần cung cấp');
+        if (!order_id || order_id <= 0) errors.push('order_id cần cung cấp');
 
         let image_related_file = null;
         let url_image_related = null;
@@ -121,49 +122,44 @@ module.exports.writeReview = async (req, res) => {
         const purchasedProduct = await PurchasedProduct.findOne({
             where: {
                 user_id,
-                product_id
+                product_id,
+                order_id
             },
             order: [['updatedAt', 'DESC']]
         })
 
         if (!purchasedProduct) {
-            return res.status(403).json({ code: 1, message: 'Chưa mua sản phẩm này' });
+            return res.status(400).json({ code: 1, message: 'Chưa đủ điều kiện để đánh giá sản phẩm' });
         }
 
         if (purchasedProduct.status !== 'completed') {
-            return res.status(403).json({ code: 1, message: 'Chưa hoàn tất quá trình mua sản phẩm' });
+            return res.status(400).json({ code: 1, message: 'Chưa hoàn tất quá trình mua sản phẩm' });
         }
 
         const now = new Date();
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 ngày trước
         if (purchasedProduct.updatedAt < thirtyDaysAgo) {
-            return res.status(403).json({ code: 1, message: 'Chỉ có thể đánh giá sản phẩm đã mua dưới 30 ngày' });
+            return res.status(400).json({ code: 1, message: 'Chỉ có thể đánh giá sản phẩm đã mua dưới 30 ngày' });
         }
 
         let review = await Review.findOne({
-            where: { user_id, product_id }
+            where: { user_id, product_id, order_id }
         });
 
         if (review) {
-            review.rating = rating;
-            review.comment = comment;
-            review.user_fullname = user_fullname;
-            await review.save();
-
-            return res.status(200).json({ code: 0, message: 'Cập nhật đánh giá thành công', data: review });
+            return res.status(400).json({ code: 1, message: 'Đã đánh giá sản phẩm này trong đơn hàng' });
         }
-        else {
-            review = await Review.create({
-                user_id,
-                seller_id: purchasedProduct.seller_id,
-                order_id: purchasedProduct.order_id,
-                user_fullname,
-                product_id,
-                rating,
-                comment,
-                url_image_related
-            });
-        }
+        
+        review = await Review.create({
+            user_id,
+            seller_id: purchasedProduct.seller_id,
+            order_id: order_id,
+            user_fullname,
+            product_id,
+            rating,
+            comment,
+            url_image_related
+        });
 
         return res.status(200).json({ code: 0, message: 'Viết đánh giá thành công', data: review });
     }
@@ -174,6 +170,10 @@ module.exports.writeReview = async (req, res) => {
 
         return res.status(500).json({ code: 2, message: 'Viết đánh giá thất bại', error: error.message });
     }
+}
+
+module.exports.updateReview = async (req, res) => {
+
 }
 
 module.exports.deleteReview = async (req, res) => {
@@ -252,6 +252,14 @@ module.exports.responseReview = async (req, res) => {
             return res.status(404).json({ code: 1, message: 'Đánh giá không tồn tại' });
         }
 
+        const existedResponseReview = await ResponseReview.findOne({
+            where: { review_id, seller_name }
+        });
+
+        if (existedResponseReview) {
+            return res.status(400).json({ code: 1, message: 'Phản hồi về đánh giá này đã tồn tại' });
+        }
+
         let image_related_file = null;
         let url_image_related = null;
 
@@ -302,6 +310,10 @@ module.exports.updateResponseReview = async (req, res) => {
             return res.status(404).json({ code: 1, message: 'Phản hồi đánh giá không tồn tại' });
         }
 
+        if(responseReview.is_edited) {
+            return res.status(404).json({ code: 1, message: 'Chỉ cho phép chỉnh sửa phản hồi 1 lần cho mỗi đánh giá' });
+        }
+
         let image_related_file = null;
 
         if (req.files && req.files['image_related']) {
@@ -329,6 +341,7 @@ module.exports.updateResponseReview = async (req, res) => {
         }
 
         responseReview.response_comment = response_comment;
+        responseReview.is_edited = true;
         await responseReview.save();
 
         if (old_public_id_image_related && new_public_id_image_related) {
