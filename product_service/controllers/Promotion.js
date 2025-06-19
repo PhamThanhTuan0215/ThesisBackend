@@ -9,14 +9,6 @@ module.exports.getAllPromotions = async (req, res) => {
     try {
         const { seller_id, status, page, limit } = req.query;
 
-        const errors = [];
-
-        if (!seller_id || seller_id === '') errors.push('seller_id cần cung cấp');
-
-        if (errors.length > 0) {
-            return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
-        }
-
         // phân trang nếu có
         let offset = 0
         let limitNumber = null
@@ -29,7 +21,8 @@ module.exports.getAllPromotions = async (req, res) => {
             }
         }
 
-        const condition = { seller_id };
+        const condition = {};
+        if (seller_id) condition.seller_id = seller_id;
         if (status) condition.status = status;
 
         const promotions = await Promotion.findAll({ where: condition, limit: limitNumber, offset });
@@ -40,6 +33,18 @@ module.exports.getAllPromotions = async (req, res) => {
     }
     catch (error) {
         return res.status(500).json({ code: 2, message: 'Lấy danh sách chương trình khuyến mãi thất bại', error: error.message });
+    }
+}
+
+module.exports.getAvailablePromotions = async (req, res) => {
+    try {
+        // lấy danh sách chương trình khuyến mãi có status là active, có ngày bắt đầu trước ngày hiện tại và có ngày kết thúc sau ngày hiện tại
+        const promotions = await Promotion.findAll({ where: { status: 'active', start_date: { [Op.lt]: new Date() }, end_date: { [Op.gt]: new Date() } } });
+
+        return res.status(200).json({ code: 0, message: 'Lấy danh sách chương trình khuyến mãi khả dụng cho khách hàng thành công', data: promotions });
+    }
+    catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lấy danh sách chương trình khuyến mãi khả dụng cho khách hàng thất bại', error: error.message });
     }
 }
 
@@ -260,6 +265,11 @@ module.exports.getProductsInPromotion = async (req, res) => {
         let limitNumber = null
         if (limit && !isNaN(limit)) {
             limitNumber = parseInt(limit);
+
+            if (page && !isNaN(page)) {
+                const pageNumber = parseInt(page);
+                offset = (pageNumber - 1) * limitNumber;
+            }
         }
 
         // lấy danh sách ids của promotion_products
