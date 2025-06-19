@@ -53,12 +53,12 @@ module.exports.getReviewByProductId = async (req, res) => {
                     url_image_related: row.url_image_related,
                     createdAt: row.createdAt,
                     updatedAt: row.updatedAt,
-                    response_reviews: []
+                    response_reviews: null
                 };
             }
 
             if (row.response_id) {
-                grouped[reviewId].response_reviews.push({
+                grouped[reviewId].response_review = {
                     id: row.response_id,
                     review_id: row.review_id,
                     seller_name: row.seller_name,
@@ -66,7 +66,7 @@ module.exports.getReviewByProductId = async (req, res) => {
                     url_image_related: row.url_image_related,
                     createdAt: row.createdAt,
                     updatedAt: row.updatedAt,
-                });
+                };
             }
         }
 
