@@ -13,6 +13,10 @@ const Review = sequelize.define('Review', {
         type: DataTypes.BIGINT,
         allowNull: false,
     },
+    seller_id: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+    },
     order_id: {
         type: DataTypes.BIGINT,
         allowNull: false,
@@ -41,6 +45,10 @@ const Review = sequelize.define('Review', {
             min: 0,
             max: 5
         }
+    },
+    url_image_related: {
+        type: DataTypes.STRING,
+        allowNull: true,
     }
 }, {
     tableName: 'reviews'
