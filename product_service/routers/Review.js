@@ -19,9 +19,9 @@ Router.delete('/delete-by-manager/:review_id', Controller.deleteReviewByManager)
 Router.post('/response/:review_id', Controller.uploadCustom, Controller.responseReview);
 
 // chỉnh sửa phản hồi
-Router.put('/response/:id', Controller.uploadCustom, Controller.updateResponseReview);
+// Router.put('/response/:id', Controller.uploadCustom, Controller.updateResponseReview); // tính năng này ko tồn tại trên các sàn TMDT phổ biến
 
 // xóa phản hồi
-Router.delete('/response/:id', Controller.deleteResponseReview);
+// Router.delete('/response/:id', Controller.deleteResponseReview); // tính năng này ko tồn tại trên các sàn TMDT phổ biến
 
 module.exports = Router
