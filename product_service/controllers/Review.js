@@ -23,7 +23,9 @@ module.exports.getReviewByProductId = async (req, res) => {
         const reviews  = await sequelize.query(`
             SELECT 
                 r.*,
+                r.url_image_related AS review_url_image_related,
                 rr.id AS response_id,
+                rr.url_image_related AS response_url_image_related,
                 rr.*
             FROM reviews r
             LEFT JOIN response_reviews rr ON r.id = rr.review_id
@@ -50,10 +52,10 @@ module.exports.getReviewByProductId = async (req, res) => {
                     product_id: row.product_id,
                     comment: row.comment,
                     rating: row.rating,
-                    url_image_related: row.url_image_related,
+                    url_image_related: row.review_url_image_related,
                     createdAt: row.createdAt,
                     updatedAt: row.updatedAt,
-                    response_reviews: null
+                    response_review: null
                 };
             }
 
@@ -63,7 +65,7 @@ module.exports.getReviewByProductId = async (req, res) => {
                     review_id: row.review_id,
                     seller_name: row.seller_name,
                     response_comment: row.response_comment,
-                    url_image_related: row.url_image_related,
+                    url_image_related: row.response_url_image_related,
                     createdAt: row.createdAt,
                     updatedAt: row.updatedAt,
                 };
