@@ -14,6 +14,7 @@ const CatalogProduct = sequelize.define('CatalogProduct', {
     name: {
         type: DataTypes.STRING,
         allowNull: false,
+        unique: true
     },
     brand: {
         type: DataTypes.STRING,

@@ -3,6 +3,7 @@ const Category = require('../database/models/Category')
 const CatalogProduct = require('../database/models/CatalogProduct')
 const Product = require('../database/models/Product')
 const Promotion = require('../database/models/Promotion')
+const CatalogPromotion = require('../database/models/CatalogPromotion')
 
 const { uploadFiles, deleteFile } = require('../ultis/manageFilesOnCloudinary')
 
@@ -125,27 +126,34 @@ module.exports.getAllProducts = async (req, res) => {
             catalogProductConditions.active_status = 'active';
         }
 
-        const products = await Product.findAll({
+        // Bước 1: Lấy danh sách id sản phẩm theo điều kiện, phân trang
+        const productIds = await Product.findAll({
             where: productConditions,
-            limit: limitNumber,
-            offset,
-            order,
-            attributes,
             include: [
                 {
                     model: CatalogProduct,
-                    required: true, // inner join
+                    required: true,
                     where: catalogProductConditions
-                },
-                {
-                    model: Promotion,
-                    through: { attributes: ['custom_start_date', 'custom_end_date', 'custom_value'] }, // Lấy các trường từ bảng PromotionProduct
                 }
-            ]
+            ],
+            attributes: ['id'],
+            limit: limitNumber,
+            offset,
+            order,
+            raw: true
         });
+        const ids = productIds.map(p => p.id);
 
-        const total = await Product.count({
-            where: productConditions,
+        // Nếu không có sản phẩm nào thì trả về luôn
+        if (ids.length === 0) {
+            return res.status(200).json({ code: 0, message: 'Lấy danh sách sản phẩm thành công', total: 0, data: [] });
+        }
+
+        // Bước 2: Truy vấn lại Product với include đầy đủ dựa trên danh sách id vừa lấy
+        const products = await Product.findAll({
+            where: { ...productConditions, id: ids },
+            order,
+            attributes,
             include: [
                 {
                     model: CatalogProduct,
@@ -154,7 +162,26 @@ module.exports.getAllProducts = async (req, res) => {
                 },
                 {
                     model: Promotion,
-                    through: { attributes: ['custom_start_date', 'custom_end_date', 'custom_value'] }, // Lấy các trường từ bảng PromotionProduct
+                    through: { attributes: ['custom_start_date', 'custom_end_date', 'custom_value'] },
+                    include: [
+                        {
+                            model: CatalogPromotion,
+                            required: true
+                        }
+                    ],
+                    required: false
+                }
+            ]
+        });
+
+        // Đếm tổng số sản phẩm (không phân trang)
+        const total = await Product.count({
+            where: productConditions,
+            include: [
+                {
+                    model: CatalogProduct,
+                    required: true,
+                    where: catalogProductConditions
                 }
             ]
         });
@@ -182,6 +209,13 @@ module.exports.getProductById = async (req, res) => {
                 {
                     model: Promotion,
                     through: { attributes: ['custom_start_date', 'custom_end_date', 'custom_value'] }, // Lấy các trường từ bảng PromotionProduct
+                    include: [
+                        {
+                            model: CatalogPromotion,
+                            required: true
+                        }
+                    ],
+                    required: false
                 }
             ]
         });
@@ -205,17 +239,37 @@ module.exports.getProductByIdForCustomer = async (req, res) => {
 
         const { id } = req.params;
 
-        const product = await Product.findByPk(id, {
+        const productConditions = {
+            id,
+            approval_status: 'approved',
+            active_status: 'active'
+        }
+
+        const catalogProductConditions = {
+            active_status: 'active'
+        }
+
+        const product = await Product.findOne({
+            where: productConditions,
             attributes: {
                 exclude: ['import_price', 'import_date', 'url_import_invoice']
             },
             include: [
                 {
-                    model: CatalogProduct
+                    model: CatalogProduct,
+                    required: true,
+                    where: catalogProductConditions
                 },
                 {
                     model: Promotion,
                     through: { attributes: ['custom_start_date', 'custom_end_date', 'custom_value'] }, // Lấy các trường từ bảng PromotionProduct
+                    include: [
+                        {
+                            model: CatalogPromotion,
+                            required: true
+                        }
+                    ],
+                    required: false
                 }
             ]
         });

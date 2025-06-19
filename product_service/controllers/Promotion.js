@@ -2,6 +2,7 @@ const Promotion = require('../database/models/Promotion')
 const PromotionProduct = require('../database/models/PromotionProduct')
 const Product = require('../database/models/Product')
 const CatalogProduct = require('../database/models/CatalogProduct')
+const CatalogPromotion = require('../database/models/CatalogPromotion')
 
 const { Op } = require('sequelize');
 
@@ -25,11 +26,23 @@ module.exports.getAllPromotions = async (req, res) => {
         if (seller_id) condition.seller_id = seller_id;
         if (status) condition.status = status;
 
-        const promotions = await Promotion.findAll({ where: condition, limit: limitNumber, offset });
+        const promotions = await Promotion.findAll({ 
+            where: condition, 
+            limit: limitNumber, 
+            offset,
+            include: [
+                {
+                    model: CatalogPromotion,
+                    required: true
+                }
+            ]
+        });
+
+        const formattedPromotions = promotions.map(formatPromotionLite);
 
         const total = await Promotion.count({ where: condition });
 
-        return res.status(200).json({ code: 0, message: 'Lấy danh sách chương trình khuyến mãi thành công', total, data: promotions });
+        return res.status(200).json({ code: 0, message: 'Lấy danh sách chương trình khuyến mãi thành công', total, data: formattedPromotions });
     }
     catch (error) {
         return res.status(500).json({ code: 2, message: 'Lấy danh sách chương trình khuyến mãi thất bại', error: error.message });
@@ -39,9 +52,16 @@ module.exports.getAllPromotions = async (req, res) => {
 module.exports.getAvailablePromotions = async (req, res) => {
     try {
         // lấy danh sách chương trình khuyến mãi có status là active, có ngày bắt đầu trước ngày hiện tại và có ngày kết thúc sau ngày hiện tại
-        const promotions = await Promotion.findAll({ where: { status: 'active', start_date: { [Op.lt]: new Date() }, end_date: { [Op.gt]: new Date() } } });
+        const promotions = await Promotion.findAll({ where: { status: 'active', start_date: { [Op.lt]: new Date() }, end_date: { [Op.gt]: new Date() } }, include: [
+            {
+                model: CatalogPromotion,
+                required: true
+            }
+        ] });
 
-        return res.status(200).json({ code: 0, message: 'Lấy danh sách chương trình khuyến mãi khả dụng cho khách hàng thành công', data: promotions });
+        const formattedPromotions = promotions.map(formatPromotionLite);
+
+        return res.status(200).json({ code: 0, message: 'Lấy danh sách chương trình khuyến mãi khả dụng cho khách hàng thành công', data: formattedPromotions });
     }
     catch (error) {
         return res.status(500).json({ code: 2, message: 'Lấy danh sách chương trình khuyến mãi khả dụng cho khách hàng thất bại', error: error.message });
@@ -52,13 +72,20 @@ module.exports.getPromotionById = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const promotion = await Promotion.findByPk(id);
+        const promotion = await Promotion.findByPk(id, { include: [
+            {
+                model: CatalogPromotion,
+                required: true
+            }
+        ] });
 
         if (!promotion) {
             return res.status(404).json({ code: 1, message: 'Chương trình khuyến mãi không tồn tại' });
         }
 
-        return res.status(200).json({ code: 0, message: 'Lấy thông tin chương trình khuyến mãi thành công', data: promotion });
+        const formattedPromotion = formatPromotionLite(promotion);
+
+        return res.status(200).json({ code: 0, message: 'Lấy thông tin chương trình khuyến mãi thành công', data: formattedPromotion });
     }
     catch (error) {
         return res.status(500).json({ code: 2, message: 'Lấy thông tin chương trình khuyến mãi thất bại', error: error.message });
@@ -67,12 +94,12 @@ module.exports.getPromotionById = async (req, res) => {
 
 module.exports.createPromotion = async (req, res) => {
     try {
-        const { name, type, value, start_date, end_date, seller_id } = req.body;
+        const { catalog_promotion_id, type, value, start_date, end_date, seller_id } = req.body;
 
         const errors = [];
 
         if (!seller_id || seller_id === '') errors.push('seller_id cần cung cấp');
-        if (!name || name === '') errors.push('name cần cung cấp');
+        if (!catalog_promotion_id || catalog_promotion_id === '') errors.push('catalog_promotion_id cần cung cấp');
         if (!type || type === '') errors.push('type cần cung cấp');
         if (!value || value <= 0) errors.push('value cần cung cấp');
         if (isNaN(Date.parse(start_date))) {
@@ -86,9 +113,20 @@ module.exports.createPromotion = async (req, res) => {
             return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
 
-        const promotion = await Promotion.create({ name, type, value, start_date, end_date, seller_id });
+        const catalogPromotion = await CatalogPromotion.findByPk(catalog_promotion_id);
 
-        return res.status(201).json({ code: 0, message: 'Tạo chương trình khuyến mãi thành công', data: promotion });
+        if (!catalogPromotion) {
+            return res.status(404).json({ code: 1, message: 'Chương trình khuyến mãi không tồn tại' });
+        }
+
+        const promotion = await Promotion.create({ catalog_promotion_id, type, value, start_date, end_date, seller_id });
+
+        const formattedPromotion = {
+            ...promotion.toJSON(),
+            name: catalogPromotion.name
+        }
+
+        return res.status(201).json({ code: 0, message: 'Tạo chương trình khuyến mãi thành công', data: formattedPromotion });
     }
     catch (error) {
         return res.status(500).json({ code: 2, message: 'Tạo chương trình khuyến mãi thất bại', error: error.message });
@@ -98,11 +136,10 @@ module.exports.createPromotion = async (req, res) => {
 module.exports.updatePromotion = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, type, value, start_date, end_date, status } = req.body;
+        const { type, value, start_date, end_date, status } = req.body;
 
         const errors = [];
 
-        if (!name || name === '') errors.push('name cần cung cấp');
         if (!type || type === '') errors.push('type cần cấp');
         if (!value || value <= 0) errors.push('value cần cấp');
         if (isNaN(Date.parse(start_date))) {
@@ -117,7 +154,7 @@ module.exports.updatePromotion = async (req, res) => {
         }
 
         const [affectedRows, updatedRows] = await Promotion.update(
-            { name, type, value, start_date, end_date, status },
+            { type, value, start_date, end_date, status },
             { where: { id }, returning: true }
         );
 
@@ -341,6 +378,19 @@ module.exports.customProductInPromotion = async (req, res) => {
     }
 }
 
+// format lại promotion phiên bản thu gọn
+function formatPromotionLite(promotion) {
+    const plain = promotion.toJSON();
+
+    const formattedPromotion = {
+        ...plain,
+        name: promotion.CatalogPromotion?.name
+    };
+
+    delete formattedPromotion.CatalogPromotion;
+
+    return formattedPromotion;
+}
 
 // format lại product phiên bản thu gọn
 function formatProductLite(product) {

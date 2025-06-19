@@ -1,22 +1,29 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../sequelize');
 
+const CatalogPromotion = require('./CatalogPromotion');
+
 const Promotion = sequelize.define('Promotion', {
     id: {
         type: DataTypes.BIGINT,
         primaryKey: true,
         autoIncrement: true
     },
+    catalog_promotion_id: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+        references: {
+            model: 'catalog_promotions',
+            key: 'id'
+        },
+        onUpdate: 'CASCADE'
+    },
     seller_id: {
         type: DataTypes.BIGINT,
         allowNull: false
-    }, // ID của nhà bán tạo chương trình khuyến mãi
-    name: {
-        type: DataTypes.STRING,
-        allowNull: false
-    }, // Tên chương trình khuyến mãi
+    }, // ID của nhà bán tạo chương trình khuyến mãi, // Tên chương trình khuyến mãi
     type: {
-        type: DataTypes.ENUM('fixed', 'percent'),
+        type: DataTypes.ENUM('fixed', 'percent', 'same_price'), // cố định, phần trăm, đồng giá sản phẩm
         allowNull: false,
         defaultValue: 'percent'
     }, // Loại khuyến mãi: giảm giá cố định hoặc theo phần trăm
@@ -41,5 +48,7 @@ const Promotion = sequelize.define('Promotion', {
 }, {
     tableName: 'promotions'
 });
+
+Promotion.belongsTo(CatalogPromotion, { foreignKey: 'catalog_promotion_id' });
 
 module.exports = Promotion;

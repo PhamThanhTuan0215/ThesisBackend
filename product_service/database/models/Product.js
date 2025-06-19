@@ -157,7 +157,8 @@ Product.addHook('afterFind', async (result, options) => {
         });
 
         if (activePromotion) {
-            product.promotion_name = activePromotion.name;
+            // hiện tại activePromotion đang liên kết với bảng CatalogPromotion để chứa name bên đó
+            product.promotion_name = activePromotion.CatalogPromotion.name;
             product.promotion_start_date = activePromotion.PromotionProduct?.custom_start_date || activePromotion.start_date;
             product.promotion_end_date = activePromotion.PromotionProduct?.custom_end_date || activePromotion.end_date;
 
@@ -168,6 +169,8 @@ Product.addHook('afterFind', async (result, options) => {
                 product.promotion_value_percent = (Number(promotion_value) / Number(product.retail_price)) * 100;
             } else if (activePromotion.type === 'percent') {
                 product.promotion_value_percent = Number(promotion_value);
+            } else if (activePromotion.type === 'same_price') {
+                product.promotion_value_percent = (Number(product.retail_price) - Number(promotion_value)) / Number(product.retail_price) * 100;
             }
 
             // Calculate actual price

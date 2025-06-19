@@ -20,6 +20,7 @@ app.use("/product-types", require("./routers/ProductType"))
 app.use("/purchased-products", require("./routers/PurchasedProduct"))
 app.use("/reviews", require("./routers/Review"))
 app.use("/reports", require("./routers/Report"))
+app.use("/catalog-promotions", require("./routers/CatalogPromotion"))
 app.use("/promotions", require("./routers/Promotion"))
 
 sequelize.authenticate()
