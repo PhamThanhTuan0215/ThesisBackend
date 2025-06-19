@@ -6,8 +6,8 @@ const bodyParser = require('body-parser');
 require('dotenv').config()
 const { PORT } = process.env
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
 
 app.get('/', (req, res) => {
     return res.status(200).json({ code: 0, message: 'Run store service successfully' })

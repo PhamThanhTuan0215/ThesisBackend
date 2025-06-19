@@ -42,7 +42,7 @@ const StoreLicense = sequelize.define('StoreLicense', {
     timestamps: true,
     indexes: [
         { fields: ['store_id'] },
-        { fields: ['license_type'] },
+        { fields: ['license_type'] }
     ]
 });
 

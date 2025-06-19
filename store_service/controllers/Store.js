@@ -1,6 +1,7 @@
 const Store = require('../database/models/Store');
 const StoreLicense = require('../database/models/StoreLicense');
 const StorePhoto = require('../database/models/StorePhoto');
+const UserSellerAccess = require('../database/models/user_seller_access');
 const sendMail = require("../configs/sendMail.js")
 
 const { uploadFiles, deleteFile } = require('../utils/manageFilesOnCloudinary.js')
@@ -10,7 +11,7 @@ const sequelize = require('../database/sequelize');
 
 const multer = require('multer');
 const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 const folderPathUpload = 'ecommerce-pharmacy/stores'
 
@@ -124,6 +125,13 @@ module.exports.createStore = async (req, res) => {
             avatar_url,
             banner_url,
             status: 'pending'
+        }, { transaction });
+
+        // Tạo quyền truy cập cho user_id
+        await UserSellerAccess.create({
+            store_id: store.id,
+            user_id: storeData.owner_id,
+            status: 'active'
         }, { transaction });
 
         // Tạo 4 bản ghi StoreLicense tương ứng
@@ -375,7 +383,7 @@ module.exports.updateStoreStatus = async (req, res) => {
         // Gửi email thông báo khi trạng thái thay đổi
         await sendMail({
             to: store.email,
-            subject: 'Thông báo trạng thái cửa hàng',
+            subject: 'Thông báo về trạng thái cửa hàng',
             html: `
                 <h2>Thông báo về trạng thái cửa hàng ${store.name}</h2>
                 <p>Trạng thái cửa hàng của bạn đã được cập nhật thành: <strong>${status}</strong></p>
@@ -625,9 +633,11 @@ module.exports.addLicense = async (req, res) => {
 
 // Cập nhật giấy phép
 module.exports.updateLicense = async (req, res) => {
+    const transaction = await sequelize.transaction();
     try {
         const { id, licenseId } = req.params;
         const { license_type, license_number, issued_date, expired_date, status } = req.body;
+        const isAdmin = req.user?.role === 'admin'; // Giả sử middleware auth đã thêm thông tin user vào req
 
         const store = await Store.findByPk(id);
         if (!store) {
@@ -651,7 +661,41 @@ module.exports.updateLicense = async (req, res) => {
             });
         }
 
-        // Dữ liệu cập nhật
+        // Xử lý trường hợp đặc biệt: Giấy phép đang approved và người dùng (không phải admin) cập nhật
+        if (license.status === 'approved' && !isAdmin && (req.file || license_number !== undefined || issued_date !== undefined || expired_date !== undefined)) {
+            // Tạo bản ghi mới với trạng thái pending
+            const newLicenseData = {
+                store_id: id,
+                license_type: license_type || license.license_type,
+                license_number: license_number !== undefined ? license_number : license.license_number,
+                issued_date: issued_date !== undefined ? issued_date : license.issued_date,
+                expired_date: expired_date !== undefined ? expired_date : license.expired_date,
+                status: 'pending'
+            };
+
+            // Nếu có file mới
+            if (req.file) {
+                const licenseResult = await uploadFiles([req.file], `${folderPathUpload}/licenses`);
+                newLicenseData.license_url = licenseResult[0].secure_url;
+            } else {
+                newLicenseData.license_url = license.license_url;
+            }
+
+            // Tạo bản ghi mới
+            const newLicense = await StoreLicense.create(newLicenseData, { transaction });
+
+            await transaction.commit();
+
+            const storeWithDetails = await getStoreWithDetails(id);
+
+            return res.status(200).json({
+                code: 0,
+                message: 'Đã tạo yêu cầu cập nhật giấy phép mới, chờ admin phê duyệt',
+                data: storeWithDetails
+            });
+        }
+
+        // Trường hợp admin cập nhật status hoặc giấy phép không ở trạng thái approved
         const updateData = {};
 
         if (license_type && ['BUSINESS_REGISTRATION', 'PHARMACIST_CERTIFICATE', 'PHARMACY_OPERATION_CERTIFICATE', 'GPP_CERTIFICATE'].includes(license_type)) {
@@ -661,11 +705,43 @@ module.exports.updateLicense = async (req, res) => {
         if (license_number !== undefined) updateData.license_number = license_number;
         if (issued_date !== undefined) updateData.issued_date = issued_date;
         if (expired_date !== undefined) updateData.expired_date = expired_date;
-        if (status && ['pending', 'approved', 'rejected', 'expired'].includes(status)) {
+
+        // Nếu là admin và có cập nhật status
+        if (isAdmin && status && ['pending', 'approved', 'rejected', 'expired'].includes(status)) {
             updateData.status = status;
+
+            // Nếu admin approved một giấy phép mới
+            if (status === 'approved') {
+                // Tìm tất cả giấy phép cùng loại của cửa hàng này (trừ giấy phép hiện tại)
+                const existingLicenses = await StoreLicense.findAll({
+                    where: {
+                        store_id: id,
+                        license_type: license.license_type,
+                        id: {
+                            [Op.ne]: licenseId
+                        },
+                        status: 'approved'
+                    },
+                    transaction
+                });
+
+                // Cập nhật trạng thái của các giấy phép cũ thành expired
+                for (const oldLicense of existingLicenses) {
+                    // Xóa ảnh cũ trên Cloudinary nếu URL khác với giấy phép mới
+                    if (oldLicense.license_url && oldLicense.license_url !== license.license_url) {
+                        const oldLicensePublicId = oldLicense.license_url.split('/').pop().split('.')[0];
+                        await deleteFile(`${folderPathUpload}/licenses/${oldLicensePublicId}`);
+                    }
+
+                    await oldLicense.update({ status: 'expired' }, { transaction });
+                }
+            }
+        } else if (!isAdmin) {
+            // Nếu không phải admin và cập nhật, luôn set về pending
+            updateData.status = 'pending';
         }
 
-        // Nếu có file mới
+        // Nếu có file mới và không phải trường hợp đặc biệt đã xử lý ở trên
         if (req.file) {
             const licenseResult = await uploadFiles([req.file], `${folderPathUpload}/licenses`);
             updateData.license_url = licenseResult[0].secure_url;
@@ -677,7 +753,9 @@ module.exports.updateLicense = async (req, res) => {
             }
         }
 
-        await license.update(updateData);
+        await license.update(updateData, { transaction });
+        await transaction.commit();
+
         const storeWithDetails = await getStoreWithDetails(id);
 
         return res.status(200).json({
@@ -687,6 +765,7 @@ module.exports.updateLicense = async (req, res) => {
         });
 
     } catch (error) {
+        await transaction.rollback();
         return res.status(500).json({
             code: 2,
             message: 'Lỗi server',
