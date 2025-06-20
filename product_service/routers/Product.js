@@ -35,4 +35,7 @@ Router.put('/set-active-product/:id', Controller.uploadCustom, Controller.setAct
 // kiểm tra số lượng sản phẩm còn lại trong kho
 Router.post('/check-stock', Controller.uploadCustom, Controller.checkStock)
 
+// lấy danh sách sản phẩm theo các id
+Router.post('/get-products-by-ids', Controller.getProductsByIds)
+
 module.exports = Router

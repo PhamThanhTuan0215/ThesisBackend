@@ -592,18 +592,25 @@ module.exports.checkStock = async (req, res) => {
         }
 
         for (const item of products) {
-            const { id, name, quantity } = item;
+            const { id, quantity } = item;
 
             const product = await Product.findByPk(id, {
-                attributes: ['id', 'stock']
+                attributes: ['id', 'stock'],
+                include: [
+                    {
+                        model: CatalogProduct,
+                        attributes: ['name'],
+                        required: true
+                    }
+                ]
             });
 
             if (!product) {
-                return res.status(404).json({ code: 1, message: `Sản phẩm không tồn tại: ${name}` });
+                return res.status(404).json({ code: 1, message: `Sản phẩm không tồn tại: ${id}` });
             }
 
             if (product.stock < quantity) {
-                return res.status(400).json({ code: 1, message: `Sản phẩm không đủ hàng: ${name} chỉ còn lại ${product.stock}` });
+                return res.status(400).json({ code: 1, message: `Sản phẩm không đủ hàng: ${product.CatalogProduct.name} chỉ còn lại ${product.stock}` });
             }
         }
 
@@ -611,6 +618,42 @@ module.exports.checkStock = async (req, res) => {
     }
     catch (error) {
         return res.status(500).json({ code: 2, message: 'Kiểm tra kho hàng thất bại', error: error.message });
+    }
+}
+
+module.exports.getProductsByIds = async (req, res) => {
+    try {
+        const { product_ids } = req.body;
+
+        const products = await Product.findAll({
+            where: { id: product_ids },
+            attributes: ['id', 'retail_price', 'stock', 'seller_id', 'seller_name', 'promotion_name', 'promotion_value_percent', 'promotion_start_date', 'promotion_end_date', 'active_status', 'approval_status'],
+            include: [
+                {
+                    model: CatalogProduct,
+                    attributes: ['name', 'url_image', 'active_status'],
+                    required: true
+                },
+                {
+                    model: Promotion,
+                    through: { attributes: ['custom_start_date', 'custom_end_date', 'custom_value'] },
+                    include: [
+                        {
+                            model: CatalogPromotion,
+                            required: true
+                        }
+                    ],
+                    required: false
+                }
+            ]
+        });
+
+        const formattedProducts = products.map(product => formatProduct(product));
+
+        return res.status(200).json({ code: 0, message: 'Lấy danh sách sản phẩm thành công', data: formattedProducts });
+    }
+    catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lấy danh sách sản phẩm thất bại', error: error.message });
     }
 }
 

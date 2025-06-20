@@ -14,26 +14,6 @@ const WishlistItem = sequelize.define('WishlistItem', {
     product_id: {
         type: DataTypes.BIGINT,
         allowNull: false,
-    },
-    product_name: {
-        type: DataTypes.STRING,
-        allowNull: false,
-    },
-    product_url_image: {
-        type: DataTypes.STRING,
-        allowNull: false,
-    },
-    price: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false
-    },
-    seller_id: {
-        type: DataTypes.BIGINT,
-        allowNull: false,
-    },
-    seller_name: {
-        type: DataTypes.STRING,
-        allowNull: false,
     }
 }, {
     tableName: 'wishlist_items',

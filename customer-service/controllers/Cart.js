@@ -1,6 +1,8 @@
 const CartItem = require('../database/models/CartItem')
 const axiosProductService = require('../services/productService')
 
+const { formatItem } = require('../utils/formatItem')
+
 module.exports.getCart = async (req, res) => {
     try {
 
@@ -14,10 +16,35 @@ module.exports.getCart = async (req, res) => {
             return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
 
-        const cartItems = await CartItem.findAll({
+        const rawCartItems = await CartItem.findAll({
             where: { user_id },
             order: [['updatedAt', 'DESC']]
         });
+
+        const product_ids = rawCartItems.map(item => item.product_id);
+
+        // gọi api tới product-service để lấy danh sách sản phẩm
+        const response = await axiosProductService.post('/products/get-products-by-ids', {
+            product_ids
+        });
+
+        if (response.data.code !== 0) {
+            return res.status(400).json({ code: 1, message: response.data.message || 'Lấy danh sách sản phẩm trong giỏ hàng thất bại' });
+        }
+
+        const products = response.data.data;
+
+        const cartItemsWithProducts = rawCartItems.map(item => {
+            const product = products.find(product => product.id === item.product_id);
+            return formatItem(item, product);
+        });
+
+        // lọc ra các sản phẩm đang được phép bán
+        const cartItems = cartItemsWithProducts.filter(product => 
+            product.approval_status === 'approved' && 
+            product.active_status === 'active' && 
+            product.platform_active_status === 'active'
+        );
 
         // Gom nhóm theo nhà bán dựa vào seller_id
         const grouped = {};
@@ -59,10 +86,35 @@ module.exports.getCartToCheckout = async (req, res) => {
             return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
 
-        const cartItems = await CartItem.findAll({
+        const rawCartItems = await CartItem.findAll({
             where: { user_id },
             order: [['updatedAt', 'DESC']]
         });
+
+        const product_ids = rawCartItems.map(item => item.product_id);
+
+        // gọi api tới product-service để lấy danh sách sản phẩm
+        const response = await axiosProductService.post('/products/get-products-by-ids', {
+            product_ids
+        });
+
+        if (response.data.code !== 0) {
+            return res.status(400).json({ code: 1, message: response.data.message || 'Lấy danh sách sản phẩm trong giỏ hàng thất bại' });
+        }
+
+        const products = response.data.data;
+
+        const cartItemsWithProducts = rawCartItems.map(item => {
+            const product = products.find(product => product.id === item.product_id);
+            return formatItem(item, product);
+        });
+
+        // lọc ra các sản phẩm đang được phép bán
+        const cartItems = cartItemsWithProducts.filter(product => 
+            product.approval_status === 'approved' && 
+            product.active_status === 'active' && 
+            product.platform_active_status === 'active'
+        );
 
         // Gom nhóm theo nhà bán dựa vào seller_id
         const grouped = {};
@@ -131,11 +183,6 @@ module.exports.addProductToCart = async (req, res) => {
         const {
             user_id,
             product_id,
-            product_name,
-            product_url_image,
-            price,
-            seller_id,
-            seller_name,
             quantity
         } = req.body;
 
@@ -143,11 +190,6 @@ module.exports.addProductToCart = async (req, res) => {
 
         if (!user_id || user_id <= 0) errors.push('user_id cần cung cấp');
         if (!product_id || product_id <= 0) errors.push('product_id cần cung cấp');
-        if (!product_name || product_name === '') errors.push('product_name cần cung cấp');
-        if (!product_url_image || product_url_image === '') errors.push('product_url_image cần cung cấp');
-        if (!price || isNaN(price) || price < 0) errors.push('price phải là số và lơn hơn hoặc bằng 0');
-        if (!seller_id || seller_id <= 0) errors.push('seller_id cần cung cấp');
-        if (!seller_name || seller_name === '') errors.push('seller_name cần cung cấp');
 
         if (errors.length > 0) {
             return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
@@ -168,7 +210,6 @@ module.exports.addProductToCart = async (req, res) => {
                 products: [
                     {
                         id: product_id,
-                        name: product_name,
                         quantity: existingItem.quantity
                     }
                 ]
@@ -186,7 +227,6 @@ module.exports.addProductToCart = async (req, res) => {
                 products: [
                     {
                         id: product_id,
-                        name: product_name,
                         quantity: quantity_to_add
                     }
                 ]
@@ -199,11 +239,6 @@ module.exports.addProductToCart = async (req, res) => {
             existingItem = await CartItem.create({
                 user_id,
                 product_id,
-                product_name,
-                product_url_image,
-                price,
-                seller_id,
-                seller_name,
                 quantity: quantity_to_add
             });
         }
@@ -279,7 +314,7 @@ module.exports.reduceProductInCart = async (req, res) => {
 
 module.exports.removeManyProductFromCart = async (req, res) => {
     try {
-        const { user_id,product_ids } = req.body
+        const { user_id, product_ids } = req.body
 
         const errors = [];
 
