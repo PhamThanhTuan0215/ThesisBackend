@@ -15,7 +15,7 @@ Router.put('/update/:review_id', Controller.uploadCustom, Controller.updateRevie
 
 // Router.delete('/delete/:review_id', Controller.deleteReview);   // tính năng này ko tồn tại trên các sàn TMDT phổ biến
 
-Router.delete('/delete-by-manager/:review_id', Controller.deleteReviewByManager);
+// Router.delete('/delete-by-manager/:review_id', Controller.deleteReviewByManager); // tính năng này ko tồn tại trên các sàn TMDT phổ biến
 
 // phản hồi đánh giá
 Router.post('/response/:review_id', Controller.uploadCustom, Controller.responseReview);

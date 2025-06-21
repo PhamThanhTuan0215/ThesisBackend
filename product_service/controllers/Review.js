@@ -30,7 +30,7 @@ module.exports.getReviewByProductId = async (req, res) => {
                 r.product_id,
                 r.comment,
                 r.rating,
-                r.url_image_related AS review_url_image_related,
+                r.url_images_related AS review_url_images_related,
                 r.is_edited,
                 r."createdAt" AS review_created_at,
                 r."updatedAt" AS review_updated_at,
@@ -67,7 +67,7 @@ module.exports.getReviewByProductId = async (req, res) => {
                     product_id: row.product_id,
                     comment: row.comment,
                     rating: row.rating,
-                    url_image_related: row.review_url_image_related,
+                    url_images_related: row.review_url_images_related || [], // Ensure it's always an array
                     is_edited: row.is_edited,
                     createdAt: row.review_created_at,
                     updatedAt: row.review_updated_at,
@@ -111,7 +111,7 @@ module.exports.getReviewByOrderId = async (req, res) => {
                 r.product_id,
                 r.comment,
                 r.rating,
-                r.url_image_related AS review_url_image_related,
+                r.url_images_related AS review_url_images_related,
                 r.is_edited,
                 r."createdAt" AS review_created_at,
                 r."updatedAt" AS review_updated_at,
@@ -148,7 +148,7 @@ module.exports.getReviewByOrderId = async (req, res) => {
                     product_id: row.product_id,
                     comment: row.comment,
                     rating: row.rating,
-                    url_image_related: row.review_url_image_related,
+                    url_images_related: row.review_url_images_related || [], // Ensure it's always an array
                     is_edited: row.is_edited,
                     createdAt: row.review_created_at,
                     updatedAt: row.review_updated_at,
@@ -180,7 +180,7 @@ module.exports.getReviewByOrderId = async (req, res) => {
 
 module.exports.writeReview = async (req, res) => {
 
-    let public_id_image_related = null
+    let public_id_image_related = []
 
     try {
         const { user_id, user_fullname } = req.query;
@@ -195,27 +195,24 @@ module.exports.writeReview = async (req, res) => {
         if (!comment || comment === '') errors.push('comment cần cung cấp');
         if (!order_id || order_id <= 0) errors.push('order_id cần cung cấp');
 
-        let image_related_file = null;
-        let url_image_related = null;
+        let image_related_files = [];
+        let url_images_related = [];
 
         if (req.files && req.files['image_related']) {
-            image_related_file = req.files && req.files['image_related'] && req.files['image_related'][0];
+            image_related_files = req.files['image_related'];
         }
 
         if (errors.length > 0) {
             return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
         }
 
-        if (image_related_file) {
-            const filesToUpload = [image_related_file];
+        if (image_related_files.length > 0) {
+            const results = await uploadFiles(image_related_files, folderPathUpload);
 
-            const results = await uploadFiles(filesToUpload, folderPathUpload);
-
-            const result_image_related_file = results[0];
-
-            url_image_related = result_image_related_file.secure_url;
-
-            public_id_image_related = result_image_related_file.public_id;
+            results.forEach(result => {
+                url_images_related.push(result.secure_url);
+                public_id_image_related.push(result.public_id);
+            });
         }
 
         const purchasedProduct = await PurchasedProduct.findOne({
@@ -257,14 +254,16 @@ module.exports.writeReview = async (req, res) => {
             product_id,
             rating,
             comment,
-            url_image_related
+            url_images_related
         });
 
         return res.status(200).json({ code: 0, message: 'Viết đánh giá thành công', data: review });
     }
     catch (error) {
-        if (public_id_image_related) {
-            deleteFile(public_id_image_related);
+        if (public_id_image_related.length > 0) {
+            public_id_image_related.forEach(public_id => {
+                deleteFile(public_id);
+            });
         }
 
         return res.status(500).json({ code: 2, message: 'Viết đánh giá thất bại', error: error.message });
@@ -272,7 +271,7 @@ module.exports.writeReview = async (req, res) => {
 }
 
 module.exports.updateReview = async (req, res) => {
-    let new_public_id_image_related = null
+    let new_public_id_image_related = []
 
     try {
         const { review_id } = req.params;
@@ -317,30 +316,27 @@ module.exports.updateReview = async (req, res) => {
             return res.status(400).json({ code: 1, message: 'Chỉ có thể chỉnh sửa đánh giá sản phẩm đã mua dưới 30 ngày' });
         }
 
-        let image_related_file = null;
+        let image_related_files = [];
 
         if (req.files && req.files['image_related']) {
-            image_related_file = req.files && req.files['image_related'] && req.files['image_related'][0];
+            image_related_files = req.files['image_related'];
         }
 
-        let old_public_id_image_related = null;
+        let old_public_id_image_related = [];
 
-        if (image_related_file) {
-
-            // Lấy public id trước đó của ảnh
-            if (review.url_image_related) {
-                old_public_id_image_related = extractFolderFromURL(review.url_image_related) + review.url_image_related.split('/').pop().split('.')[0];
+        if (image_related_files.length > 0) {
+            // Lấy public id trước đó của các ảnh
+            if (review.url_images_related && review.url_images_related.length > 0) {
+                old_public_id_image_related = review.url_images_related.map(url => {
+                    return extractFolderFromURL(url) + url.split('/').pop().split('.')[0];
+                });
             }
 
-            const filesToUpload = [image_related_file];
-            const results = await uploadFiles(filesToUpload, folderPathUpload);
-
-            const result_image_related_file = results[0];
+            const results = await uploadFiles(image_related_files, folderPathUpload);
 
             // cập nhật url mới trong DB
-            review.url_image_related = result_image_related_file.secure_url;
-
-            new_public_id_image_related = result_image_related_file.public_id;
+            review.url_images_related = results.map(result => result.secure_url);
+            new_public_id_image_related = results.map(result => result.public_id);
         }
 
         review.comment = comment;
@@ -349,15 +345,19 @@ module.exports.updateReview = async (req, res) => {
 
         await review.save();
 
-        if (old_public_id_image_related && new_public_id_image_related) {
-            deleteFile(old_public_id_image_related);
+        if (old_public_id_image_related.length > 0) {
+            old_public_id_image_related.forEach(public_id => {
+                deleteFile(public_id);
+            });
         }
 
         return res.status(200).json({ code: 0, message: 'Chỉnh sửa đánh giá thành công', data: review });
     }
     catch (error) {
-        if (new_public_id_image_related) {
-            deleteFile(new_public_id_image_related);
+        if (new_public_id_image_related.length > 0) {
+            new_public_id_image_related.forEach(public_id => {
+                deleteFile(public_id);
+            });
         }
 
         return res.status(500).json({ code: 2, message: 'Chỉnh sửa đánh giá thất bại', error: error.message });
@@ -379,16 +379,20 @@ module.exports.deleteReview = async (req, res) => {
             return res.status(403).json({ code: 1, message: 'Người dùng không được phép xóa đánh giá này' });
         }
 
-        let public_id_image_related = null
+        let public_ids_image_related = [];
 
-        if (review.url_image_related) {
-            public_id_image_related = extractFolderFromURL(review.url_image_related) + review.url_image_related.split('/').pop().split('.')[0];
+        if (review.url_images_related && review.url_images_related.length > 0) {
+            public_ids_image_related = review.url_images_related.map(url => {
+                return extractFolderFromURL(url) + url.split('/').pop().split('.')[0];
+            });
         }
 
         await review.destroy();
 
-        if (public_id_image_related) {
-            deleteFile(public_id_image_related);
+        if (public_ids_image_related.length > 0) {
+            public_ids_image_related.forEach(public_id => {
+                deleteFile(public_id);
+            });
         }
 
         return res.status(200).json({ code: 0, message: 'Xóa đánh giá thành công', data: review });
@@ -408,16 +412,20 @@ module.exports.deleteReviewByManager = async (req, res) => {
             return res.status(404).json({ code: 1, message: 'Đánh giá không tồn tại' });
         }
 
-        let public_id_image_related = null
+        let public_ids_image_related = [];
 
-        if (review.url_image_related) {
-            public_id_image_related = extractFolderFromURL(review.url_image_related) + review.url_image_related.split('/').pop().split('.')[0];
+        if (review.url_images_related && review.url_images_related.length > 0) {
+            public_ids_image_related = review.url_images_related.map(url => {
+                return extractFolderFromURL(url) + url.split('/').pop().split('.')[0];
+            });
         }
 
         await review.destroy();
 
-        if (public_id_image_related) {
-            deleteFile(public_id_image_related);
+        if (public_ids_image_related.length > 0) {
+            public_ids_image_related.forEach(public_id => {
+                deleteFile(public_id);
+            });
         }
 
         return res.status(200).json({ code: 0, message: 'Xóa đánh giá thành công', data: review });

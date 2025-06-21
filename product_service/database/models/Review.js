@@ -46,8 +46,8 @@ const Review = sequelize.define('Review', {
             max: 5
         }
     },
-    url_image_related: {
-        type: DataTypes.STRING,
+    url_images_related: {
+        type: DataTypes.ARRAY(DataTypes.STRING),
         allowNull: true,
     },
     is_edited: {
