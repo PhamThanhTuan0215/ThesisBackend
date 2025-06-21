@@ -20,13 +20,28 @@ module.exports.getReviewByProductId = async (req, res) => {
     try {
         const { product_id } = req.params;
 
-        const reviews  = await sequelize.query(`
+        const reviews = await sequelize.query(`
             SELECT 
-                r.*,
+                r.id AS review_id,
+                r.user_id,
+                r.seller_id,
+                r.order_id,
+                r.user_fullname,
+                r.product_id,
+                r.comment,
+                r.rating,
                 r.url_image_related AS review_url_image_related,
+                r.is_edited,
+                r."createdAt" AS review_created_at,
+                r."updatedAt" AS review_updated_at,
+
                 rr.id AS response_id,
+                rr.review_id as response_review_id,
+                rr.response_comment,
+                rr.seller_name,
                 rr.url_image_related AS response_url_image_related,
-                rr.*
+                rr."createdAt" AS response_created_at,
+                rr."updatedAt" AS response_updated_at
             FROM reviews r
             LEFT JOIN response_reviews rr ON r.id = rr.review_id
             WHERE r.product_id = :productId
@@ -40,11 +55,11 @@ module.exports.getReviewByProductId = async (req, res) => {
         const grouped = {};
 
         for (const row of reviews) {
-            const reviewId = row.id;
+            const reviewId = row.review_id;
 
             if (!grouped[reviewId]) {
                 grouped[reviewId] = {
-                    id: row.id,
+                    id: row.review_id,
                     user_id: row.user_id,
                     seller_id: row.seller_id,
                     order_id: row.order_id,
@@ -53,8 +68,9 @@ module.exports.getReviewByProductId = async (req, res) => {
                     comment: row.comment,
                     rating: row.rating,
                     url_image_related: row.review_url_image_related,
-                    createdAt: row.createdAt,
-                    updatedAt: row.updatedAt,
+                    is_edited: row.is_edited,
+                    createdAt: row.review_created_at,
+                    updatedAt: row.review_updated_at,
                     response_review: null
                 };
             }
@@ -62,12 +78,12 @@ module.exports.getReviewByProductId = async (req, res) => {
             if (row.response_id) {
                 grouped[reviewId].response_review = {
                     id: row.response_id,
-                    review_id: row.review_id,
+                    review_id: row.response_review_id,
                     seller_name: row.seller_name,
                     response_comment: row.response_comment,
                     url_image_related: row.response_url_image_related,
-                    createdAt: row.createdAt,
-                    updatedAt: row.updatedAt,
+                    createdAt: row.response_created_at,
+                    updatedAt: row.response_updated_at,
                 };
             }
         }
@@ -78,6 +94,87 @@ module.exports.getReviewByProductId = async (req, res) => {
     }
     catch (error) {
         return res.status(500).json({ code: 2, message: 'Lấy danh sách đánh giá của sản phẩm thất bại', error: error.message });
+    }
+}
+
+module.exports.getReviewByOrderId = async (req, res) => {
+    try {
+        const { order_id } = req.params;
+
+        const reviews = await sequelize.query(`
+            SELECT 
+                r.id AS review_id,
+                r.user_id,
+                r.seller_id,
+                r.order_id,
+                r.user_fullname,
+                r.product_id,
+                r.comment,
+                r.rating,
+                r.url_image_related AS review_url_image_related,
+                r.is_edited,
+                r."createdAt" AS review_created_at,
+                r."updatedAt" AS review_updated_at,
+
+                rr.id AS response_id,
+                rr.review_id as response_review_id,
+                rr.response_comment,
+                rr.seller_name,
+                rr.url_image_related AS response_url_image_related,
+                rr."createdAt" AS response_created_at,
+                rr."updatedAt" AS response_updated_at
+            FROM reviews r
+            LEFT JOIN response_reviews rr ON r.id = rr.review_id
+            WHERE r.order_id = :orderId
+            ORDER BY r."updatedAt" DESC
+        `, {
+            replacements: { orderId: order_id },
+            type: sequelize.QueryTypes.SELECT
+        });
+
+        // Gom các phản hồi vào từng review
+        const grouped = {};
+
+        for (const row of reviews) {
+            const reviewId = row.review_id;
+
+            if (!grouped[reviewId]) {
+                grouped[reviewId] = {
+                    id: row.review_id,
+                    user_id: row.user_id,
+                    seller_id: row.seller_id,
+                    order_id: row.order_id,
+                    user_fullname: row.user_fullname,
+                    product_id: row.product_id,
+                    comment: row.comment,
+                    rating: row.rating,
+                    url_image_related: row.review_url_image_related,
+                    is_edited: row.is_edited,
+                    createdAt: row.review_created_at,
+                    updatedAt: row.review_updated_at,
+                    response_review: null
+                };
+            }
+
+            if (row.response_id) {
+                grouped[reviewId].response_review = {
+                    id: row.response_id,
+                    review_id: row.response_review_id,
+                    seller_name: row.seller_name,
+                    response_comment: row.response_comment,
+                    url_image_related: row.response_url_image_related,
+                    createdAt: row.response_created_at,
+                    updatedAt: row.response_updated_at,
+                };
+            }
+        }
+
+        const result = Object.values(grouped);
+
+        return res.status(200).json({ code: 0, message: 'Lấy danh sách đánh giá của đơn hàng thành công', data: result });
+    }
+    catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lấy danh sách đánh giá của đơn hàng thất bại', error: error.message });
     }
 }
 
@@ -151,7 +248,7 @@ module.exports.writeReview = async (req, res) => {
         if (review) {
             return res.status(400).json({ code: 1, message: 'Đã đánh giá sản phẩm này trong đơn hàng' });
         }
-        
+
         review = await Review.create({
             user_id,
             seller_id: purchasedProduct.seller_id,
@@ -189,11 +286,11 @@ module.exports.updateReview = async (req, res) => {
 
         const review = await Review.findByPk(review_id);
 
-        if(!review) {
+        if (!review) {
             return res.status(404).json({ code: 1, message: 'Đánh giá không tồn tại' });
         }
 
-        if(review.is_edited) {
+        if (review.is_edited) {
             return res.status(400).json({ code: 1, message: 'Chỉ có thể chỉnh sửa đánh giá 1 lần' });
         }
 
@@ -401,7 +498,7 @@ module.exports.updateResponseReview = async (req, res) => {
             return res.status(404).json({ code: 1, message: 'Phản hồi đánh giá không tồn tại' });
         }
 
-        if(responseReview.is_edited) {
+        if (responseReview.is_edited) {
             return res.status(400).json({ code: 1, message: 'Chỉ cho phép chỉnh sửa phản hồi 1 lần cho mỗi đánh giá' });
         }
 
@@ -467,7 +564,7 @@ module.exports.deleteResponseReview = async (req, res) => {
             public_id_image_related = extractFolderFromURL(responseReview.url_image_related) + responseReview.url_image_related.split('/').pop().split('.')[0];
         }
 
-        if(public_id_image_related) {
+        if (public_id_image_related) {
             deleteFile(public_id_image_related);
         }
 

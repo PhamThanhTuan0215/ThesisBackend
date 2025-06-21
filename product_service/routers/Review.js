@@ -7,6 +7,8 @@ const authenticateToken = require('../middlewares/auth');
 
 Router.get('/:product_id', Controller.getReviewByProductId);
 
+Router.get('/order/:order_id', Controller.getReviewByOrderId);
+
 Router.post('/add/:product_id', Controller.uploadCustom, Controller.writeReview);   // tạm thời dùng trực tiếp thông tin của user trong query, về sau thay bằng việc lấy thông tin user từ token ở header
 
 Router.put('/update/:review_id', Controller.uploadCustom, Controller.updateReview);
