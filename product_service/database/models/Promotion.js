@@ -46,7 +46,13 @@ const Promotion = sequelize.define('Promotion', {
         defaultValue: 'active'
     }, // Trạng thái hoạt động
 }, {
-    tableName: 'promotions'
+    tableName: 'promotions',
+    indexes: [
+        {
+            unique: true,
+            fields: ['catalog_promotion_id', 'seller_id']
+        }
+    ]
 });
 
 Promotion.belongsTo(CatalogPromotion, { foreignKey: 'catalog_promotion_id' });

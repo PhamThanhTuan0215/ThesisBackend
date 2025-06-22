@@ -9,7 +9,10 @@ const authenticateToken = require('../middlewares/auth');
 Router.get('/', Controller.getAllPromotions) // lọc theo seller_id
 
 // lấy danh sách chương trình khuyến mãi khả dụng cho khách hàng
-Router.get('/available', Controller.getAvailablePromotions)
+Router.get('/available', Controller.getAvailablePromotionsWithProducts)
+
+// Lấy danh sách sản phẩm đang được bán trong chương trình khuyến mãi
+Router.get('/available/products', Controller.getActiveProductsInPromotion)
 
 // lấy thông tin khuyến mãi
 Router.get('/:id', Controller.getPromotionById)

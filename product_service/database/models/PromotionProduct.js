@@ -51,5 +51,6 @@ const PromotionProduct = sequelize.define('PromotionProduct', {
 });
 
 PromotionProduct.belongsTo(Promotion, { foreignKey: 'promotion_id' });
+Promotion.hasMany(PromotionProduct, { foreignKey: 'promotion_id' });
 
 module.exports = PromotionProduct;

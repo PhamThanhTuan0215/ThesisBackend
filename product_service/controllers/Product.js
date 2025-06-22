@@ -7,6 +7,8 @@ const CatalogPromotion = require('../database/models/CatalogPromotion')
 
 const { uploadFiles, deleteFile } = require('../ultis/manageFilesOnCloudinary')
 
+const { formatProduct } = require('../ultis/formatData')
+
 // const { Op } = require('sequelize');
 const { Op, where, fn, literal } = require('sequelize');
 
@@ -678,25 +680,4 @@ function extractFolderFromURL(url) {
 
     // Nếu không có thư mục
     return ''; // Trả về chuỗi rỗng
-}
-
-function formatProduct(product) {
-    const plain = product.toJSON();
-
-    const formattedProduct = {
-        ...plain,
-        name: product.CatalogProduct?.name,
-        brand: product.CatalogProduct?.brand,
-        platform_active_status: product.CatalogProduct?.active_status,
-        url_image: product.CatalogProduct?.url_image,
-        url_registration_license: product.CatalogProduct?.url_registration_license,
-        product_type_id: product.CatalogProduct?.product_type_id,
-        category_id: product.CatalogProduct?.category_id,
-        product_details: product.CatalogProduct?.product_details,
-    };
-
-    delete formattedProduct.CatalogProduct;
-    delete formattedProduct.Promotions;
-
-    return formattedProduct;
 }

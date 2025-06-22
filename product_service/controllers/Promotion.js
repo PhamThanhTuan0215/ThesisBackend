@@ -4,6 +4,8 @@ const Product = require('../database/models/Product')
 const CatalogProduct = require('../database/models/CatalogProduct')
 const CatalogPromotion = require('../database/models/CatalogPromotion')
 
+const { formatPromotionLite, formatProductLite, formatProduct } = require('../ultis/formatData')
+
 const { Op } = require('sequelize');
 
 module.exports.getAllPromotions = async (req, res) => {
@@ -26,14 +28,19 @@ module.exports.getAllPromotions = async (req, res) => {
         if (seller_id) condition.seller_id = seller_id;
         if (status) condition.status = status;
 
-        const promotions = await Promotion.findAll({ 
-            where: condition, 
-            limit: limitNumber, 
+        const promotions = await Promotion.findAll({
+            where: condition,
+            limit: limitNumber,
             offset,
             include: [
                 {
                     model: CatalogPromotion,
                     required: true
+                },
+                {
+                    model: PromotionProduct,
+                    required: false,
+                    attributes: ['product_id']
                 }
             ]
         });
@@ -49,22 +56,239 @@ module.exports.getAllPromotions = async (req, res) => {
     }
 }
 
-module.exports.getAvailablePromotions = async (req, res) => {
+module.exports.getAvailablePromotionsWithProducts = async (req, res) => {
     try {
+        const { limit } = req.query;
+
         // lấy danh sách chương trình khuyến mãi có status là active, có ngày bắt đầu trước ngày hiện tại và có ngày kết thúc sau ngày hiện tại
-        const promotions = await Promotion.findAll({ where: { status: 'active', start_date: { [Op.lt]: new Date() }, end_date: { [Op.gt]: new Date() } }, include: [
-            {
-                model: CatalogPromotion,
-                required: true
-            }
-        ] });
+        const promotions = await Promotion.findAll({
+            where: { status: 'active', start_date: { [Op.lt]: new Date() }, end_date: { [Op.gt]: new Date() } },
+            attributes: { exclude: ['createdAt', 'updatedAt'] },
+            include: [
+                {
+                    model: CatalogPromotion,
+                    required: true
+                },
+                {
+                    model: PromotionProduct,
+                    required: false,
+                    attributes: ['product_id']
+                }
+            ]
+        });
 
         const formattedPromotions = promotions.map(formatPromotionLite);
 
-        return res.status(200).json({ code: 0, message: 'Lấy danh sách chương trình khuyến mãi khả dụng cho khách hàng thành công', data: formattedPromotions });
+        // dựa trên các chương trình khuyến mãi, lấy danh sách sản phẩm tương ứng vào lưu thêm vào trường items của formattedPromotions
+        const product_ids = formattedPromotions.flatMap((promotion) => promotion.product_ids);
+
+        attributes = { exclude: ['import_price', 'import_date', 'url_import_invoice', 'return_policy', 'approved', 'active_status', 'url_registration_license'] };
+        const productConditions = { approval_status: 'approved', active_status: 'active' };
+        const catalogProductConditions = { active_status: 'active' };
+
+        // Lấy sản phẩm cho từng chương trình riêng biệt
+        const productsPerPromotion = await Promise.all(formattedPromotions.map(async (promotion) => {
+            const products = await Product.findAll({
+                where: { ...productConditions, id: { [Op.in]: promotion.product_ids } },
+                limit: limit || 5,
+                attributes,
+                include: [
+                    {
+                        model: CatalogProduct,
+                        required: true,
+                        where: catalogProductConditions
+                    },
+                    {
+                        model: Promotion,
+                        through: { attributes: ['custom_start_date', 'custom_end_date', 'custom_value'] },
+                        include: [
+                            {
+                                model: CatalogPromotion,
+                                required: true
+                            }
+                        ],
+                        required: false
+                    }
+                ]
+            });
+            return {
+                promotion_id: promotion.id,
+                promotion_name: promotion.name,
+                products: products.map(formatProduct)
+            };
+        }));
+
+        // gom nhóm các promotion có cùng name, lấy ra catalog_promotion_id, start_date nhỏ nhất, end_date lớn nhất
+        const groupedPromotions = formattedPromotions.reduce((acc, promotion) => {
+            if (!acc[promotion.name]) {
+                acc[promotion.name] = {
+                    name: promotion.name,
+                    catalog_promotion_id: promotion.catalog_promotion_id,
+                    earliest_start_date: promotion.start_date,
+                    latest_end_date: promotion.end_date,
+                    product_ids: [...promotion.product_ids]
+                };
+            } else {
+                // Cập nhật start_date và end_date
+                acc[promotion.name].earliest_start_date = new Date(acc[promotion.name].earliest_start_date) < new Date(promotion.start_date) 
+                    ? acc[promotion.name].earliest_start_date 
+                    : promotion.start_date;
+                acc[promotion.name].latest_end_date = new Date(acc[promotion.name].latest_end_date) > new Date(promotion.end_date)
+                    ? acc[promotion.name].latest_end_date
+                    : promotion.end_date;
+                // Thêm product_ids mới
+                acc[promotion.name].product_ids = [...new Set([...acc[promotion.name].product_ids, ...promotion.product_ids])];
+            }
+            return acc;
+        }, {});
+
+        // Chuyển đổi từ object sang array
+        const mergedPromotions = Object.values(groupedPromotions);
+
+        // Tính tổng số sản phẩm cho mỗi chương trình khuyến mãi đã gom nhóm
+        const promotionTotals = await Promise.all(mergedPromotions.map(async (promotion) => {
+            const total = await Product.count({
+                where: { 
+                    id: { [Op.in]: promotion.product_ids },
+                    approval_status: 'approved',
+                    active_status: 'active'
+                },
+                include: [
+                    {
+                        model: CatalogProduct,
+                        required: true,
+                        where: catalogProductConditions
+                    }
+                ]
+            });
+            return { promotion_name: promotion.name, total };
+        }));
+
+        // Gom nhóm sản phẩm theo tên promotion
+        const productsGroupedByName = productsPerPromotion.reduce((acc, curr) => {
+            if (!acc[curr.promotion_name]) {
+                acc[curr.promotion_name] = curr.products;
+            } else {
+                // Thêm sản phẩm mới, loại bỏ trùng lặp dựa trên id
+                const existingIds = new Set(acc[curr.promotion_name].map(p => p.id));
+                const newProducts = curr.products.filter(p => !existingIds.has(p.id));
+                acc[curr.promotion_name] = [...acc[curr.promotion_name], ...newProducts].slice(0, limit || 5);
+            }
+            return acc;
+        }, {});
+
+        // Kết hợp thông tin vào mergedPromotions
+        mergedPromotions.forEach(promotion => {
+            promotion.products = productsGroupedByName[promotion.name] || [];
+            promotion.total_products = promotionTotals.find(pt => pt.promotion_name === promotion.name)?.total || 0;
+        });
+
+        return res.status(200).json({ code: 0, message: 'Lấy danh sách chương trình khuyến mãi khả dụng cho khách hàng thành công', data: mergedPromotions });
     }
     catch (error) {
         return res.status(500).json({ code: 2, message: 'Lấy danh sách chương trình khuyến mãi khả dụng cho khách hàng thất bại', error: error.message });
+    }
+}
+
+module.exports.getActiveProductsInPromotion = async (req, res) => {
+    try {
+        const { promotion_name, limit, page } = req.query;
+
+        const errors = [];
+
+        if (errors.length > 0) {
+            return res.status(400).json({ code: 1, message: 'Xác thực thất bại', errors });
+        }
+
+        // Tìm tất cả promotion có cùng tên
+        const promotions = await Promotion.findAll({
+            where: { status: 'active', start_date: { [Op.lt]: new Date() }, end_date: { [Op.gt]: new Date() } },
+            include: [
+                {
+                    model: CatalogPromotion,
+                    required: true,
+                    where: { name: promotion_name }
+                }
+            ]
+        });
+
+        if (!promotions || promotions.length === 0) {
+            return res.status(404).json({ code: 1, message: 'Không tìm thấy chương trình khuyến mãi' });
+        }
+
+        // phân trang nếu có
+        let offset = 0
+        let limitNumber = null
+        if (limit && !isNaN(limit)) {
+            limitNumber = parseInt(limit);
+
+            if (page && !isNaN(page)) {
+                const pageNumber = parseInt(page);
+                offset = (pageNumber - 1) * limitNumber;
+            }
+        }
+
+        // lấy danh sách ids của promotion_products từ tất cả promotion có cùng tên
+        const promotionIds = promotions.map(promotion => promotion.id);
+        const promotionProducts = await PromotionProduct.findAll({
+            where: { promotion_id: { [Op.in]: promotionIds } },
+            attributes: ['product_id']
+        });
+        const product_ids = [...new Set(promotionProducts.map(pp => pp.product_id))]; // Loại bỏ các product_id trùng lặp
+
+        attributes = { exclude: ['import_price', 'import_date', 'url_import_invoice', 'return_policy', 'approved', 'active_status', 'url_registration_license'] };
+        const productConditions = { approval_status: 'approved', active_status: 'active' };
+        const catalogProductConditions = { active_status: 'active' };
+
+        // lấy danh sách sản phẩm
+        const products = await Product.findAll({
+            where: { ...productConditions, id: { [Op.in]: product_ids } },
+            limit: limitNumber,
+            offset,
+            attributes,
+            include: [
+                {
+                    model: CatalogProduct,
+                    required: true,
+                    where: catalogProductConditions
+                },
+                {
+                    model: Promotion,
+                    through: { attributes: ['custom_start_date', 'custom_end_date', 'custom_value'] },
+                    include: [
+                        {
+                            model: CatalogPromotion,
+                            required: true
+                        }
+                    ],
+                    required: false
+                }
+            ]
+        });
+
+        const formattedProducts = products.map(formatProduct);
+
+        const total = await Product.count({
+            where: { ...productConditions, id: { [Op.in]: product_ids } },
+            include: [
+                {
+                    model: CatalogProduct,
+                    required: true,
+                    where: catalogProductConditions
+                }
+            ]
+        });
+
+        return res.status(200).json({
+            code: 0,
+            message: 'Lấy danh sách sản phẩm đang được bán trong chương trình khuyến mãi thành công',
+            total,
+            promotion_name,
+            data: formattedProducts
+        });
+    }
+    catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lấy danh sách sản phẩm đang được bán trong chương trình khuyến mãi thất bại', error: error.message });
     }
 }
 
@@ -72,12 +296,14 @@ module.exports.getPromotionById = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const promotion = await Promotion.findByPk(id, { include: [
-            {
-                model: CatalogPromotion,
-                required: true
-            }
-        ] });
+        const promotion = await Promotion.findByPk(id, {
+            include: [
+                {
+                    model: CatalogPromotion,
+                    required: true
+                }
+            ]
+        });
 
         if (!promotion) {
             return res.status(404).json({ code: 1, message: 'Chương trình khuyến mãi không tồn tại' });
@@ -129,6 +355,18 @@ module.exports.createPromotion = async (req, res) => {
         return res.status(201).json({ code: 0, message: 'Tạo chương trình khuyến mãi thành công', data: formattedPromotion });
     }
     catch (error) {
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            const fields = Object.keys(error.fields || {});
+          
+            // Trường hợp 1
+            if (fields.includes('catalog_promotion_id') && fields.includes('seller_id')) {
+                return res.status(400).json({ code: 2, message: 'Nhà bán đã tạo chương trình khuyến mãi này', error: error.message });
+            }
+          
+            // Mặc định nếu không khớp
+            return res.status(400).json({ code: 2, message: 'Dữ liệu đã tồn tại, vui lòng kiểm tra lại', error: error.message });
+        }
+
         return res.status(500).json({ code: 2, message: 'Tạo chương trình khuyến mãi thất bại', error: error.message });
     }
 }
@@ -328,6 +566,13 @@ module.exports.getProductsInPromotion = async (req, res) => {
                 {
                     model: Promotion,
                     through: { attributes: ['custom_start_date', 'custom_end_date', 'custom_value'] }, // Lấy các trường từ bảng PromotionProduct
+                    include: [
+                        {
+                            model: CatalogPromotion,
+                            required: true
+                        }
+                    ],
+                    required: false
                 }
             ]
         });
@@ -376,34 +621,4 @@ module.exports.customProductInPromotion = async (req, res) => {
     catch (error) {
         return res.status(500).json({ code: 2, message: 'Tùy chỉnh khuyến mãi cho sản phẩm thất bại', error: error.message });
     }
-}
-
-// format lại promotion phiên bản thu gọn
-function formatPromotionLite(promotion) {
-    const plain = promotion.toJSON();
-
-    const formattedPromotion = {
-        ...plain,
-        name: promotion.CatalogPromotion?.name
-    };
-
-    delete formattedPromotion.CatalogPromotion;
-
-    return formattedPromotion;
-}
-
-// format lại product phiên bản thu gọn
-function formatProductLite(product) {
-    const plain = product.toJSON();
-
-    const formattedProduct = {
-        ...plain,
-        name: product.CatalogProduct?.name,
-        url_image: product.CatalogProduct?.url_image
-    };
-
-    delete formattedProduct.CatalogProduct;
-    delete formattedProduct.Promotions;
-
-    return formattedProduct;
 }
