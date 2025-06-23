@@ -3,7 +3,7 @@ const OrderItem = require('../database/models/OrderItem');
 const { Op } = require('sequelize');
 const sequelize = require('../database/sequelize');
 
-const sendMail = require("../units/sendMail.js")
+const sendMail = require("../utils/sendMail.js")
 
 const axiosProductService = require('../services/productService')
 const axiosCustomerService = require('../services/customerService')

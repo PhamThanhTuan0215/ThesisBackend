@@ -41,6 +41,10 @@ const OrderReturnRequest = sequelize.define('OrderReturnRequest', {
         type: DataTypes.TEXT,
         allowNull: true,
     },
+    url_images_related: {
+        type: DataTypes.ARRAY(DataTypes.STRING),
+        allowNull: true,
+    },
     request_at: {
         type: DataTypes.DATE,
         allowNull: false,

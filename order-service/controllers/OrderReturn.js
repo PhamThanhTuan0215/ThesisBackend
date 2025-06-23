@@ -9,12 +9,29 @@ const { Op } = require('sequelize');
 const axiosShipmentService = require('../services/shipmentService')
 const axiosProductService = require('../services/productService')
 
+const { uploadFiles, deleteFile } = require('../utils/manageFilesOnCloudinary')
+
+const multer = require('multer');
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
+const folderPathUpload = 'ecommerce-pharmacy/order-return-requests'
+
+module.exports.uploadCustom = upload.fields([
+    { name: 'image_related', maxCount: 10 }
+]);
+
 // Tạo yêu cầu hoàn trả
 exports.createReturnRequest = async (req, res) => {
+
+    let public_id_image_related = []
+
     const transaction = await sequelize.transaction();
     try {
         const { order_id } = req.params;
-        const { reason, customer_message, customer_shipping_address_id, items } = req.body;
+        const { reason, customer_message, customer_shipping_address_id, items: raw_items } = req.body;
+
+        const items = JSON.parse(raw_items);
 
         // Kiểm tra đơn hàng có tồn tại và đã hoàn thành
         const order = await Order.findOne({
@@ -55,6 +72,22 @@ exports.createReturnRequest = async (req, res) => {
             });
         }
 
+        let image_related_files = [];
+        let url_images_related = [];
+
+        if (req.files && req.files['image_related']) {
+            image_related_files = req.files['image_related'];
+        }
+
+        if (image_related_files.length > 0) {
+            const results = await uploadFiles(image_related_files, folderPathUpload);
+
+            results.forEach(result => {
+                url_images_related.push(result.secure_url);
+                public_id_image_related.push(result.public_id);
+            });
+        }
+
         const orderItems = await OrderItem.findAll({
             where: {
                 order_id
@@ -68,6 +101,7 @@ exports.createReturnRequest = async (req, res) => {
             user_id: order.user_id,
             reason,
             customer_message,
+            url_images_related,
             status: 'requested',
             request_at: new Date(),
             customer_shipping_address_id,
@@ -103,6 +137,11 @@ exports.createReturnRequest = async (req, res) => {
 
     } catch (error) {
         await transaction.rollback();
+        if (public_id_image_related.length > 0) {
+            public_id_image_related.forEach(public_id => {
+                deleteFile(public_id);
+            });
+        }
         return res.status(500).json({
             code: 2,
             message: error.message
@@ -501,4 +540,27 @@ const calculateReturnAmountItem = (total_items_price, total_discount_amount_item
 const calculateReturnAmountOrder = (total_items_price, total_discount_amount_items, returnedOrderItems) => {
     const total_return_amount = returnedOrderItems.reduce((acc, item) => acc + calculateReturnAmountItem(total_items_price, total_discount_amount_items, item), 0);
     return total_return_amount;
+}
+
+function extractFolderFromURL(url) {
+    // Tách phần sau "upload/" (nếu có)
+    const uploadIndex = url.indexOf('/upload/');
+    if (uploadIndex === -1) return ''; // Không tìm thấy "/upload/", trả về chuỗi rỗng
+
+    // Lấy phần sau "/upload/"
+    const path = url.substring(uploadIndex + 8);
+
+    // Loại bỏ tiền tố "v[digits]/" nếu có
+    const cleanedPath = path.replace(/^v\d+\//, '');
+
+    // Tìm vị trí của dấu "/" cuối cùng
+    const lastSlashIndex = cleanedPath.lastIndexOf('/');
+
+    // Trích xuất toàn bộ path (không có tiền tố "v[digits]/")
+    if (lastSlashIndex !== -1) {
+        return cleanedPath.substring(0, lastSlashIndex + 1);
+    }
+
+    // Nếu không có thư mục
+    return ''; // Trả về chuỗi rỗng
 }
