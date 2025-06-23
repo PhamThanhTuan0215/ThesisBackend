@@ -13,13 +13,71 @@ const { uploadFiles, deleteFile } = require('../utils/manageFilesOnCloudinary')
 
 const multer = require('multer');
 const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+
+// Cấu hình multer
+const uploadConfig = {
+    storage: storage,
+    fileFilter: (req, file, cb) => {
+        // Kiểm tra loại file
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Chỉ chấp nhận file hình ảnh!'), false);
+        }
+    },
+    limits: {
+        fileSize: 10 * 1024 * 1024, // tăng giới hạn mỗi file lên 10MB
+        fieldSize: 10 * 1024 * 1024, // tăng giới hạn kích thước field
+        files: 10 // cho phép tối đa 10 files
+    }
+};
+
+const upload = multer(uploadConfig);
 
 const folderPathUpload = 'ecommerce-pharmacy/order-return-requests'
 
-module.exports.uploadCustom = upload.fields([
-    { name: 'image_related', maxCount: 10 }
-]);
+// Middleware xử lý lỗi upload
+const handleUploadError = (err, req, res, next) => {
+    if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({
+                code: 1,
+                message: 'File quá lớn. Giới hạn là 10MB cho mỗi file'
+            });
+        }
+        if (err.code === 'LIMIT_FILE_COUNT') {
+            return res.status(400).json({
+                code: 1,
+                message: 'Số lượng file vượt quá giới hạn. Tối đa 10 files'
+            });
+        }
+        if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+            return res.status(400).json({
+                code: 1,
+                message: 'Tên field không đúng. Vui lòng sử dụng "image_related"'
+            });
+        }
+        return res.status(400).json({
+            code: 1,
+            message: 'Lỗi upload file: ' + err.message
+        });
+    }
+    if (err) {
+        return res.status(400).json({
+            code: 1,
+            message: err.message
+        });
+    }
+    next();
+};
+
+// Export middleware upload
+module.exports.uploadCustom = [
+    upload.fields([
+        { name: 'image_related', maxCount: 10 }
+    ]),
+    handleUploadError
+];
 
 // Tạo yêu cầu hoàn trả
 exports.createReturnRequest = async (req, res) => {

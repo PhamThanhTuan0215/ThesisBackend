@@ -6,18 +6,7 @@ const Controller = require('../controllers/OrderReturn')
 const authenticateToken = require('../middlewares/auth');
 
 // Tạo yêu cầu hoàn trả
-Router.post('/request/:order_id', 
-    (req, res, next) => {
-        Controller.uploadCustom[0](req, res, (err) => {
-            if (err) {
-                Controller.uploadCustom[1](err, req, res, next);
-            } else {
-                next();
-            }
-        });
-    },
-    Controller.createReturnRequest
-)
+Router.post('/request/:order_id', Controller.uploadCustom, Controller.createReturnRequest)
 
 // Xóa yêu cầu hoàn trả
 Router.delete('/request/:id', Controller.deleteReturnRequest)

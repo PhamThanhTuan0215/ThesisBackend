@@ -8,7 +8,26 @@ const { uploadFiles, deleteFile } = require('../ultis/manageFilesOnCloudinary')
 
 const multer = require('multer');
 const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+
+// Cấu hình multer
+const uploadConfig = {
+    storage: storage,
+    fileFilter: (req, file, cb) => {
+        // Kiểm tra loại file
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Chỉ chấp nhận file hình ảnh!'), false);
+        }
+    },
+    limits: {
+        fileSize: 10 * 1024 * 1024, // tăng giới hạn mỗi file lên 10MB
+        fieldSize: 10 * 1024 * 1024, // tăng giới hạn kích thước field
+        files: 10 // cho phép tối đa 10 files
+    }
+};
+
+const upload = multer(uploadConfig);
 
 const folderPathUpload = 'ecommerce-pharmacy/reviews'
 
