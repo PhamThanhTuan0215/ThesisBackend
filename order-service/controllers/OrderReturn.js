@@ -164,7 +164,21 @@ exports.deleteReturnRequest = async (req, res) => {
             });
         }
 
+        let public_ids_image_related = [];
+
+        if (returnRequest.url_images_related && returnRequest.url_images_related.length > 0) {
+            public_ids_image_related = returnRequest.url_images_related.map(url => {
+                return extractFolderFromURL(url) + url.split('/').pop().split('.')[0];
+            });
+        }
+
         await returnRequest.destroy();
+
+        if (public_ids_image_related.length > 0) {
+            public_ids_image_related.forEach(public_id => {
+                deleteFile(public_id);
+            });
+        }
 
         return res.status(200).json({
             code: 0,
