@@ -626,3 +626,211 @@ function extractFolderFromURL(url) {
     // Nếu không có thư mục
     return ''; // Trả về chuỗi rỗng
 }
+
+/**
+ * Lấy tất cả review, cho phép lọc theo seller_id, rating, ngày, search, trả về thống kê và danh sách review (có/không phản hồi, kèm dữ liệu phản hồi nếu có)
+ * Query: ?seller_id=...&rating=5&rating=4&search=...&from_date=yyyy-mm-dd&to_date=yyyy-mm-dd
+ */
+module.exports.getAllReviewsWithStats = async (req, res) => {
+    try {
+        const { seller_id, rating, search, from_date, to_date } = req.query;
+        // Lấy ngày hôm nay (UTC)
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setUTCDate(today.getUTCDate() + 1);
+
+        // ----------- 1. Lấy stats (chỉ filter seller_id nếu có) -----------
+        let statsSellerSQL = '';
+        let statsReplacements = {};
+        if (seller_id) {
+            statsSellerSQL = ' AND r.seller_id = :sellerId';
+            statsReplacements.sellerId = seller_id;
+        }
+        const statsReviews = await sequelize.query(`
+            SELECT 
+                r.id AS review_id,
+                r.rating,
+                r."createdAt" AS review_created_at,
+                rr.id AS response_id
+            FROM reviews r
+            LEFT JOIN response_reviews rr ON r.id = rr.review_id
+            WHERE 1=1
+            ${statsSellerSQL}
+        `, {
+            replacements: statsReplacements,
+            type: sequelize.QueryTypes.SELECT
+        });
+        let totalReviews = 0;
+        let goodReviews = 0;
+        let badReviews = 0;
+        let badReviewsNoResponse = 0;
+        let todayReviews = 0;
+        let starCount = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+        for (const row of statsReviews) {
+            totalReviews++;
+            if ([3, 4, 5].includes(Number(row.rating))) {
+                goodReviews++;
+            } else {
+                badReviews++;
+            }
+            const createdAt = new Date(row.review_created_at);
+            if (createdAt >= today && createdAt < tomorrow) {
+                todayReviews++;
+            }
+            if ([1, 2, 3, 4, 5].includes(Number(row.rating))) {
+                starCount[Number(row.rating)]++;
+            }
+            if (!row.response_id && [1, 2].includes(Number(row.rating))) {
+                badReviewsNoResponse++;
+            }
+        }
+        // Lấy tổng số sản phẩm đã mua (để tính tỷ lệ đánh giá)
+        let purchasedCount = 0;
+        if (seller_id) {
+            purchasedCount = await PurchasedProduct.count({ where: { seller_id } });
+        } else {
+            purchasedCount = await PurchasedProduct.count();
+        }
+        const goodReviewRatio = totalReviews > 0 ? (goodReviews / totalReviews) : 0;
+        const reviewRate = purchasedCount > 0 ? (totalReviews / purchasedCount) : 0;
+
+        // ----------- 2. Lấy data (áp dụng filter/search như hiện tại) -----------
+        // Xử lý filter rating (có thể là mảng hoặc 1 giá trị)
+        let ratingFilter = [];
+        if (rating) {
+            if (Array.isArray(rating)) {
+                ratingFilter = rating.map(r => Number(r)).filter(r => [1, 2, 3, 4, 5].includes(r));
+            } else if (typeof rating === 'string') {
+                ratingFilter = rating.split(',').map(r => Number(r)).filter(r => [1, 2, 3, 4, 5].includes(r));
+            } else {
+                ratingFilter = [Number(rating)].filter(r => [1, 2, 3, 4, 5].includes(r));
+            }
+        }
+        // Xử lý filter ngày
+        let dateFilter = '';
+        let replacements = {};
+        if (from_date) {
+            dateFilter += ` AND r."createdAt" >= :fromDate`;
+            replacements.fromDate = new Date(from_date + 'T00:00:00.000Z');
+        }
+        if (to_date) {
+            dateFilter += ` AND r."createdAt" <= :toDate`;
+            replacements.toDate = new Date(to_date + 'T23:59:59.999Z');
+        }
+        // Xử lý search (tìm theo product_name, order_id, user_fullname)
+        let searchFilter = '';
+        if (search) {
+            searchFilter = ` AND (
+                LOWER(cp.name) LIKE :searchLike
+                OR CAST(r.order_id AS TEXT) LIKE :searchLike
+                OR LOWER(r.user_fullname) LIKE :searchLike
+            )`;
+            replacements.searchLike = `%${search.toLowerCase()}%`;
+        }
+        // Xử lý filter rating trong SQL
+        let ratingSQL = '';
+        if (ratingFilter.length > 0) {
+            ratingSQL = ` AND r.rating IN (:ratingFilter)`;
+            replacements.ratingFilter = ratingFilter;
+        }
+        // Xử lý filter seller_id
+        let sellerSQL = '';
+        if (seller_id) {
+            sellerSQL = ' AND r.seller_id = :sellerId';
+            replacements.sellerId = seller_id;
+        }
+        const reviews = await sequelize.query(`
+            SELECT 
+                r.id AS review_id,
+                r.user_id,
+                r.seller_id,
+                r.order_id,
+                r.user_fullname,
+                r.product_id,
+                r.comment,
+                r.rating,
+                r.url_images_related AS review_url_images_related,
+                r.is_edited,
+                r."createdAt" AS review_created_at,
+                r."updatedAt" AS review_updated_at,
+
+                rr.id AS response_id,
+                rr.review_id as response_review_id,
+                rr.response_comment,
+                rr.seller_name,
+                rr.url_image_related AS response_url_image_related,
+                rr."createdAt" AS response_created_at,
+                rr."updatedAt" AS response_updated_at,
+
+                cp.name AS product_name,
+                cp.url_image AS product_image
+            FROM reviews r
+            LEFT JOIN response_reviews rr ON r.id = rr.review_id
+            LEFT JOIN products p ON r.product_id = p.id
+            LEFT JOIN catalog_products cp ON p.catalog_product_id = cp.id
+            WHERE 1=1
+            ${sellerSQL}
+            ${ratingSQL}
+            ${dateFilter}
+            ${searchFilter}
+            ORDER BY r."updatedAt" DESC
+        `, {
+            replacements,
+            type: sequelize.QueryTypes.SELECT
+        });
+        const reviewsWithResponse = [];
+        const reviewsWithoutResponse = [];
+        for (const row of reviews) {
+            const reviewData = {
+                id: row.review_id,
+                user_id: row.user_id,
+                seller_id: row.seller_id,
+                order_id: row.order_id,
+                user_fullname: row.user_fullname,
+                product_id: row.product_id,
+                product_name: row.product_name,
+                product_image: row.product_image,
+                comment: row.comment,
+                rating: row.rating,
+                url_images_related: row.review_url_images_related || [],
+                is_edited: row.is_edited,
+                createdAt: row.review_created_at,
+                updatedAt: row.review_updated_at,
+                response_review: null
+            };
+            if (row.response_id) {
+                reviewData.response_review = {
+                    id: row.response_id,
+                    review_id: row.response_review_id,
+                    seller_name: row.seller_name,
+                    response_comment: row.response_comment,
+                    url_image_related: row.response_url_image_related,
+                    createdAt: row.response_created_at,
+                    updatedAt: row.response_updated_at,
+                };
+                reviewsWithResponse.push(reviewData);
+            } else {
+                reviewsWithoutResponse.push(reviewData);
+            }
+        }
+        return res.status(200).json({
+            code: 0,
+            message: 'Lấy thống kê và danh sách đánh giá thành công',
+            stats: {
+                totalReviews,
+                goodReviewRatio,
+                reviewRate,
+                badReviewsNoResponse,
+                todayReviews,
+                starCount
+            },
+            data: {
+                reviewsWithResponse,
+                reviewsWithoutResponse
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lấy thống kê và danh sách đánh giá thất bại', error: error.message });
+    }
+}

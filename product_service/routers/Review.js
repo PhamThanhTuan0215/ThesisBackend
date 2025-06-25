@@ -5,6 +5,8 @@ const Controller = require('../controllers/Review')
 
 const authenticateToken = require('../middlewares/auth');
 
+Router.get('/stats', Controller.getAllReviewsWithStats);
+
 Router.get('/:product_id', Controller.getReviewByProductId);
 
 Router.get('/order/:order_id', Controller.getReviewByOrderId);
@@ -25,5 +27,4 @@ Router.post('/response/:review_id', Controller.uploadCustom, Controller.response
 
 // xóa phản hồi
 // Router.delete('/response/:id', Controller.deleteResponseReview); // tính năng này ko tồn tại trên các sàn TMDT phổ biến
-
 module.exports = Router
