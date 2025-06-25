@@ -14,6 +14,9 @@ Router.get('/available', Controller.getAvailablePromotionsWithProducts)
 // Lấy danh sách sản phẩm đang được bán trong chương trình khuyến mãi
 Router.get('/available/products', Controller.getActiveProductsInPromotion)
 
+// Lấy danh sách sản phẩm của seller chưa tham gia chương trình khuyến mãi nào
+Router.get('/not-in-promotion', Controller.getProductsNotInAnyPromotion)
+
 // lấy thông tin khuyến mãi
 Router.get('/:id', Controller.getPromotionById)
 

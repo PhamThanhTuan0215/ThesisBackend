@@ -12,9 +12,9 @@ module.exports.getAllPromotions = async (req, res) => {
     try {
         const { seller_id, status, page, limit } = req.query;
 
-        // phân trang nếu có
-        let offset = 0
-        let limitNumber = null
+        // Phân trang nếu có
+        let offset = 0;
+        let limitNumber = null;
         if (limit && !isNaN(limit)) {
             limitNumber = parseInt(limit);
 
@@ -28,6 +28,7 @@ module.exports.getAllPromotions = async (req, res) => {
         if (seller_id) condition.seller_id = seller_id;
         if (status) condition.status = status;
 
+        // Lấy danh sách promotions
         const promotions = await Promotion.findAll({
             where: condition,
             limit: limitNumber,
@@ -45,16 +46,35 @@ module.exports.getAllPromotions = async (req, res) => {
             ]
         });
 
+        // Check và update status nếu end_date đã qua
+        const now = new Date();
+        for (const promo of promotions) {
+            if (promo.end_date && promo.end_date < now && promo.status !== 'expired') {
+                // Update trong DB
+                promo.status = 'inactive';
+                await promo.save();
+            }
+        }
+
         const formattedPromotions = promotions.map(formatPromotionLite);
 
         const total = await Promotion.count({ where: condition });
 
-        return res.status(200).json({ code: 0, message: 'Lấy danh sách chương trình khuyến mãi thành công', total, data: formattedPromotions });
+        return res.status(200).json({
+            code: 0,
+            message: 'Lấy danh sách chương trình khuyến mãi thành công',
+            total,
+            data: formattedPromotions
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            code: 2,
+            message: 'Lấy danh sách chương trình khuyến mãi thất bại',
+            error: error.message
+        });
     }
-    catch (error) {
-        return res.status(500).json({ code: 2, message: 'Lấy danh sách chương trình khuyến mãi thất bại', error: error.message });
-    }
-}
+};
 
 module.exports.getAvailablePromotionsWithProducts = async (req, res) => {
     try {
@@ -130,8 +150,8 @@ module.exports.getAvailablePromotionsWithProducts = async (req, res) => {
                 };
             } else {
                 // Cập nhật start_date và end_date
-                acc[promotion.name].earliest_start_date = new Date(acc[promotion.name].earliest_start_date) < new Date(promotion.start_date) 
-                    ? acc[promotion.name].earliest_start_date 
+                acc[promotion.name].earliest_start_date = new Date(acc[promotion.name].earliest_start_date) < new Date(promotion.start_date)
+                    ? acc[promotion.name].earliest_start_date
                     : promotion.start_date;
                 acc[promotion.name].latest_end_date = new Date(acc[promotion.name].latest_end_date) > new Date(promotion.end_date)
                     ? acc[promotion.name].latest_end_date
@@ -148,7 +168,7 @@ module.exports.getAvailablePromotionsWithProducts = async (req, res) => {
         // Tính tổng số sản phẩm cho mỗi chương trình khuyến mãi đã gom nhóm
         const promotionTotals = await Promise.all(mergedPromotions.map(async (promotion) => {
             const total = await Product.count({
-                where: { 
+                where: {
                     id: { [Op.in]: promotion.product_ids },
                     approval_status: 'approved',
                     active_status: 'active'
@@ -321,7 +341,6 @@ module.exports.getPromotionById = async (req, res) => {
 module.exports.createPromotion = async (req, res) => {
     try {
         const { catalog_promotion_id, type, value, start_date, end_date, seller_id } = req.body;
-
         const errors = [];
 
         if (!seller_id || seller_id === '') errors.push('seller_id cần cung cấp');
@@ -357,12 +376,12 @@ module.exports.createPromotion = async (req, res) => {
     catch (error) {
         if (error.name === 'SequelizeUniqueConstraintError') {
             const fields = Object.keys(error.fields || {});
-          
+
             // Trường hợp 1
             if (fields.includes('catalog_promotion_id') && fields.includes('seller_id')) {
                 return res.status(400).json({ code: 2, message: 'Nhà bán đã tạo chương trình khuyến mãi này', error: error.message });
             }
-          
+
             // Mặc định nếu không khớp
             return res.status(400).json({ code: 2, message: 'Dữ liệu đã tồn tại, vui lòng kiểm tra lại', error: error.message });
         }
@@ -620,5 +639,39 @@ module.exports.customProductInPromotion = async (req, res) => {
     }
     catch (error) {
         return res.status(500).json({ code: 2, message: 'Tùy chỉnh khuyến mãi cho sản phẩm thất bại', error: error.message });
+    }
+}
+
+module.exports.getProductsNotInAnyPromotion = async (req, res) => {
+    try {
+        const { seller_id } = req.query;
+        if (!seller_id) {
+            return res.status(400).json({ code: 1, message: 'Thiếu seller_id' });
+        }
+
+        // Lấy tất cả product_id đã tham gia bất kỳ promotion nào và promotion đó có status là active
+        const promotionProducts = await PromotionProduct.findAll({ attributes: ['product_id'], raw: true, include: [{ model: Promotion, where: { status: 'active' } }] });
+        const productIdsInPromotion = promotionProducts.map(pp => pp.product_id);
+
+        // Lấy tất cả sản phẩm của seller chưa tham gia promotion nào
+        const products = await Product.findAll({
+            where: {
+                seller_id,
+                id: { [Op.notIn]: productIdsInPromotion }
+            },
+            attributes: ['id', 'stock', 'retail_price', 'actual_price', 'promotion_name', 'promotion_value_percent', 'promotion_start_date', 'promotion_end_date'],
+            include: [
+                {
+                    model: CatalogProduct,
+                    required: true,
+                    attributes: ['name']
+                }
+            ]
+        });
+
+        const formattedProducts = products.map(formatProduct);
+        return res.status(200).json({ code: 0, message: 'Lấy danh sách sản phẩm chưa tham gia khuyến mãi thành công', total: formattedProducts.length, data: formattedProducts });
+    } catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lấy danh sách sản phẩm chưa tham gia khuyến mãi thất bại', error: error.message });
     }
 }
