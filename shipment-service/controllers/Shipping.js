@@ -2,13 +2,14 @@ const { Op } = require('sequelize');
 const Shipment = require('../database/models/Shipment');
 const Joi = require('joi');
 const { SHIPPING_STATUS, CHECKPOINT_STATUS, CHECKPOINT_TO_SHIPPING_STATUS } = require('../enums/status');
+const ShippingAddress = require('../database/models/ShippingAddress');
+const orderServiceAxios = require('../services/orderService');
 
 // Schema validate tạo vận đơn
 const createOrderSchema = Joi.object({
     order_id: Joi.number().required(),
-    shipping_provider_id: Joi.number().required(),
-    shipping_address_from_id: Joi.number().required(),
-    shipping_address_to_id: Joi.number().required(),
+    user_id: Joi.number().required(),
+    seller_id: Joi.number().required(),
 });
 
 // Schema validate checkpoint
@@ -65,8 +66,12 @@ module.exports.createShippingOrder = async (req, res) => {
     }
     try {
         const tracking_number = generateTrackingNumber();
+        const shipping_address_to = await ShippingAddress.findOne({ where: { user_id: req.body.user_id } });
         const shipment = await Shipment.create({
             ...req.body,
+            shipping_provider_id: 1,
+            shipping_address_from_id: req.body.seller_id,
+            shipping_address_to_id: shipping_address_to.id,
             tracking_number,
             current_status: SHIPPING_STATUS.WAITING_FOR_PICKUP,
             progress: [],
@@ -103,6 +108,16 @@ module.exports.getShippingOrderById = async (req, res) => {
     }
 };
 
+// Lấy chi tiết vận đơn theo order_id
+module.exports.getShippingOrderByOrderId = async (req, res) => {
+    try {
+        const shipment = await Shipment.findOne({ where: { order_id: req.params.id } });
+        res.json({ code: 0, success: true, data: shipment });
+    } catch (error) {
+        res.status(500).json({ code: 2, success: false, message: error.message });
+    }
+};
+
 // Quét mã (thêm checkpoint)
 module.exports.scanCheckpoint = async (req, res) => {
     const { error } = scanSchema.validate(req.body);
@@ -131,6 +146,39 @@ module.exports.scanCheckpoint = async (req, res) => {
             newStatus = CHECKPOINT_TO_SHIPPING_STATUS[req.body.status];
         }
         await shipment.update({ progress, current_status: newStatus });
+
+        // --- CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG BÊN ORDER SERVICE ---
+        // Mapping shipping status -> order status
+        let mappedOrderStatus = null;
+        switch (newStatus) {
+            case SHIPPING_STATUS.PICKED_UP:
+                mappedOrderStatus = 'ready_to_ship'; break;
+            case SHIPPING_STATUS.IN_TRANSIT:
+            case SHIPPING_STATUS.OUT_FOR_DELIVERY:
+                mappedOrderStatus = 'shipping'; break;
+            case SHIPPING_STATUS.DELIVERED:
+                mappedOrderStatus = 'delivered'; break;
+            case SHIPPING_STATUS.RETURNED:
+            case SHIPPING_STATUS.CANCELLED:
+            case SHIPPING_STATUS.LOST:
+            case SHIPPING_STATUS.DAMAGED:
+                mappedOrderStatus = 'cancelled'; break;
+            case SHIPPING_STATUS.DELIVERY_FAILED:
+                mappedOrderStatus = 'confirmed'; break;
+            default:
+                mappedOrderStatus = null;
+        }
+        // Chỉ gọi nếu shipment có order_id và mappedOrderStatus hợp lệ
+        if (shipment.order_id && mappedOrderStatus) {
+            try {
+                await orderServiceAxios.put(`/orders/${shipment.order_id}`, { order_status: mappedOrderStatus });
+            } catch (err) {
+                // log lỗi nhưng không làm fail response
+                console.error('Failed to update order status:', err.message);
+            }
+        }
+        // --- END cập nhật trạng thái order ---
+
         res.json({ code: 0, success: true, data: shipment });
     } catch (error) {
         res.status(500).json({ code: 2, success: false, message: error.message });

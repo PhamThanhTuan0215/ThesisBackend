@@ -116,7 +116,7 @@ exports.createReturnRequest = async (req, res) => {
             }
         });
 
-        if (existingRequest &&existingRequest.status === 'requested') {
+        if (existingRequest && existingRequest.status === 'requested') {
             return res.status(400).json({
                 code: 1,
                 message: 'Yêu cầu hoàn trả đã tồn tại, vui lòng chờ phản hồi'
@@ -422,6 +422,7 @@ exports.responseReturnRequest = async (req, res) => {
             });
 
             if (response.data.code !== 0) {
+                console.log(response.data);
                 return res.status(400).json({ code: 1, message: response.data.message || 'Có lỗi khi tính toán tiền vận chuyển cần hoàn trả' });
             }
 

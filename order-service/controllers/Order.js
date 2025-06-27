@@ -11,6 +11,7 @@ const axiosDiscountService = require('../services/discountService')
 const axiosPaymentService = require('../services/paymentService')
 const axiosUserService = require('../services/userService')
 const axiosStoreService = require('../services/storeService')
+const axiosShipmentService = require('../services/shipmentService')
 
 module.exports.getOrder = async (req, res) => {
     try {
@@ -44,7 +45,13 @@ module.exports.getOrder = async (req, res) => {
         }
 
         if (order_status && order_status !== '') {
-            conditions.order_status = order_status;
+            if (order_status.includes(',')) {
+                // Nếu truyền nhiều trạng thái, tách thành mảng
+                const statusArr = order_status.split(',').map(s => s.trim()).filter(Boolean);
+                conditions.order_status = { [Op.in]: statusArr };
+            } else {
+                conditions.order_status = order_status;
+            }
         }
 
         if (payment_status && payment_status !== '') {
@@ -233,6 +240,14 @@ module.exports.updateOrder = async (req, res) => {
             axiosStoreService.put(`/stores/${order.seller_id}/balance`, {
                 balance: order.final_total * 0.75,
                 type: 'add',
+            });
+        }
+
+        if (order.order_status === 'confirmed') {
+            axiosShipmentService.post('/shipments/create', {
+                order_id: order.id,
+                user_id: order.user_id,
+                seller_id: order.seller_id,
             });
         }
 
@@ -583,3 +598,105 @@ const formatPrice = (price) => {
         currency: 'VND'
     }).format(price);
 };
+
+// LẤY DANH SÁCH ĐƠN HÀNG KÈM VẬN CHUYỂN VÀ USER, ĐẾM SỐ LƯỢNG THEO NHÓM TRẠNG THÁI
+module.exports.getAllOrdersWithDetails = async (req, res) => {
+    try {
+        const { startDate, endDate, order_status, payment_status, seller_id } = req.query;
+        const conditions = {};
+        let selectedStartDate = undefined;
+        let selectedEndDate = undefined;
+        if (startDate && endDate) {
+            const isValidStartDate = /^\d{4}-\d{2}-\d{2}$/.test(startDate);
+            const isValidEndDate = /^\d{4}-\d{2}-\d{2}$/.test(endDate);
+            if (!isValidStartDate || !isValidEndDate) {
+                return res.status(400).json({ code: 1, message: 'Định dạng ngày không hợp lệ. Vui lòng sử dụng: yyyy-mm-dd.' });
+            }
+            selectedStartDate = new Date(startDate);
+            selectedStartDate.setHours(0, 0, 0, 0);
+            selectedEndDate = new Date(endDate);
+            selectedEndDate.setHours(23, 59, 59, 999);
+        }
+        if (selectedStartDate && selectedEndDate) {
+            conditions.createdAt = {
+                [Op.gte]: selectedStartDate,
+                [Op.lte]: selectedEndDate
+            };
+        }
+        if (order_status && order_status !== '') {
+            if (order_status.includes(',')) {
+                // Nếu truyền nhiều trạng thái, tách thành mảng
+                const statusArr = order_status.split(',').map(s => s.trim()).filter(Boolean);
+                conditions.order_status = { [Op.in]: statusArr };
+            } else {
+                conditions.order_status = order_status;
+            }
+        }
+        if (payment_status && payment_status !== '') {
+            conditions.payment_status = payment_status;
+        }
+        if (seller_id && seller_id > 0) {
+            conditions.seller_id = seller_id;
+        }
+        // Lấy tất cả đơn hàng theo filter hiện tại
+        const orders = await Order.findAll({
+            where: conditions,
+            order: [
+                [sequelize.literal(`CASE WHEN order_status = 'cancelled' THEN 1 ELSE 0 END`), 'ASC'],
+                ['createdAt', 'DESC']
+            ]
+        });
+        // Đếm số lượng theo nhóm trạng thái trên toàn bộ đơn hàng (chỉ filter seller_id nếu có)
+        const countWhere = seller_id && seller_id > 0 ? { seller_id } : {};
+        const allOrders = await Order.findAll({ where: countWhere });
+        const statusCount = {
+            pending: 0,
+            confirmed: 0,
+            ready_to_ship_shipping: 0, // ready_to_ship + shipping
+            delivered: 0,
+            cancelled_refunded: 0, // cancelled + refunded
+            total: 0
+        };
+        for (const order of allOrders) {
+            statusCount.total++;
+            if (order.order_status === 'pending') statusCount.pending++;
+            else if (order.order_status === 'confirmed') statusCount.confirmed++;
+            else if (['ready_to_ship', 'shipping'].includes(order.order_status)) statusCount.ready_to_ship_shipping++;
+            else if (order.order_status === 'delivered') statusCount.delivered++;
+            else if (['cancelled', 'refunded'].includes(order.order_status)) statusCount.cancelled_refunded++;
+        }
+        // Lấy thông tin shipment và user cho từng đơn hàng
+        const results = await Promise.all(orders.map(async (order) => {
+            let shipment = null;
+            try {
+                const shipmentRes = await axiosShipmentService.get(`/shipments/shipping-orders/order/${order.id}`);
+                if (shipmentRes.data.code === 0) {
+                    shipment = shipmentRes.data.data;
+                }
+            } catch (e) { shipment = null; }
+            let userInfo = null;
+            try {
+                const userRes = await axiosUserService.get(`users/info/${order.user_id}`);
+                if (userRes.data && userRes.data.data) {
+                    userInfo = userRes.data.data;
+                }
+            } catch (e) { userInfo = null; }
+            return {
+                ...order.dataValues,
+                shipment,
+                user: userInfo
+            };
+        }));
+        // Tổng số đơn hàng theo filter hiện tại
+        const total = orders.length;
+        return res.status(200).json({
+            code: 0,
+            message: 'Lấy danh sách đơn hàng chi tiết thành công',
+            data: results,
+            statusCount,
+            total
+        });
+    } catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lấy danh sách đơn hàng chi tiết thất bại', error: error.message });
+    }
+}

@@ -7,6 +7,8 @@ const authenticateToken = require('../middlewares/auth');
 
 Router.get('/', Controller.getOrder)
 
+Router.get('/get-details-order', Controller.getAllOrdersWithDetails)
+
 Router.post('/', Controller.createOrder)
 
 Router.put('/:id', Controller.updateOrder)

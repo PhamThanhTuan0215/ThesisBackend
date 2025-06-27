@@ -79,7 +79,6 @@ module.exports.register = async (req, res) => {
 }
 
 module.exports.registerSeller = async (req, res) => {
-    console.log('req.body:', req.body);
     try {
         const { email, fullname, phone, password, role } = req.body;
         const existingUser = await User.findOne({ where: { email, role: { [Op.or]: ['admin_seller', 'staff_seller'] } } });
@@ -436,3 +435,20 @@ module.exports.adminUpdateCustomer = async (req, res) => {
         return res.status(500).json({ code: 2, message: 'Lỗi server', error: error.message });
     }
 };
+
+module.exports.getInfoUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findOne({
+            where: { id },
+            attributes: ['email', 'fullname', 'phone', 'avatar']
+        });
+
+        if (!user) {
+            return res.status(404).json({ code: 1, message: 'Không tìm thấy người dùng' });
+        }
+        return res.status(200).json({ code: 0, message: 'Lấy thông tin người dùng thành công', data: user });
+    } catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lỗi server', error: error.message });
+    }
+}

@@ -5,6 +5,8 @@ const { authenticateToken } = require('../middlewares/auth');
 
 Router.get('/', Controller.getAllCustomers);
 
+Router.get('/info/:id', Controller.getInfoUser);
+
 Router.get('/:id', Controller.getUserById);
 
 Router.post('/register', Controller.register);
