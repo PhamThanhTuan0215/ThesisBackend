@@ -106,6 +106,7 @@ module.exports.getShippingOrders = async (req, res) => {
             if (order) {
                 plainShipment.payment_method = order.payment_method;
                 plainShipment.payment_status = order.payment_status;
+                plainShipment.final_total = order.final_total;
             }
 
             return plainShipment;
