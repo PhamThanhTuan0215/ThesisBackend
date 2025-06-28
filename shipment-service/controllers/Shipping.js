@@ -89,7 +89,29 @@ module.exports.getShippingOrders = async (req, res) => {
         if (req.query.current_status) where.current_status = req.query.current_status;
         if (req.query.tracking_number) where.tracking_number = req.query.tracking_number;
         const shipments = await Shipment.findAll({ where });
-        res.json({ code: 0, success: true, data: shipments });
+
+        // gọi api order-service để lấy thêm payment_method và payment_status
+        const order_ids = shipments.map(shipment => shipment.order_id);
+
+        const response = await orderServiceAxios.post(`/orders/ids`, { ids: order_ids });
+        const orders = response.data.data;
+        const orderMap = new Map(orders.map(order => [order.id, order]));
+
+        // Convert Sequelize instances to plain objects and add payment info
+        const formattedShipments = shipments.map(shipment => {
+            // Convert to plain object
+            const plainShipment = shipment.get({ plain: true });
+            const order = orderMap.get(shipment.order_id);
+
+            if (order) {
+                plainShipment.payment_method = order.payment_method;
+                plainShipment.payment_status = order.payment_status;
+            }
+
+            return plainShipment;
+        });
+
+        res.json({ code: 0, success: true, data: formattedShipments });
     } catch (error) {
         res.status(500).json({ code: 2, success: false, message: error.message });
     }

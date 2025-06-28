@@ -80,6 +80,24 @@ module.exports.getOrder = async (req, res) => {
     }
 }
 
+module.exports.getOrdersByIds = async (req, res) => {
+
+    try {
+        const { ids } = req.body;
+
+        const orders = await Order.findAll({
+            where: {
+                id: { [Op.in]: ids }
+            }
+        });
+
+        return res.status(200).json({ code: 0, message: 'Lấy danh sách đơn hàng theo ids thành công', data: orders });
+    }
+    catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lấy danh sách đơn hàng theo ids thất bại', error: error.message });
+    }
+}
+
 module.exports.createOrder = async (req, res) => {
     try {
         const { user_id, payment_method, payment_status, stores } = req.body;
