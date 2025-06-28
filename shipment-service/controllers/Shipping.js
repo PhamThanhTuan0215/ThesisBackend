@@ -129,8 +129,10 @@ module.exports.scanCheckpoint = async (req, res) => {
         if (!shipment) {
             return res.status(404).json({ code: 3, success: false, message: 'Shipping order not found' });
         }
+        
         // Tự động sinh note
         const note = formatNote(req.body.status, req.body.location);
+        
         // Thêm checkpoint vào progress
         const checkpoint = {
             location: req.body.location,
@@ -138,14 +140,22 @@ module.exports.scanCheckpoint = async (req, res) => {
             note,
             timestamp: new Date(),
         };
-        const progress = Array.isArray(shipment.progress) ? shipment.progress : [];
+        
+        const progress = Array.isArray(shipment.progress) ? [...shipment.progress] : [];
         progress.push(checkpoint);
+        
         // Map checkpoint status sang shipping status nếu có quy tắc
         let newStatus = shipment.current_status;
         if (CHECKPOINT_TO_SHIPPING_STATUS[req.body.status]) {
             newStatus = CHECKPOINT_TO_SHIPPING_STATUS[req.body.status];
         }
-        await shipment.update({ progress, current_status: newStatus });
+        
+        // QUAN TRỌNG: Phải mark field progress đã thay đổi
+        shipment.progress = progress;
+        shipment.current_status = newStatus;
+        shipment.changed('progress', true);
+        
+        await shipment.save();
 
         // --- CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG BÊN ORDER SERVICE ---
         // Mapping shipping status -> order status
@@ -168,6 +178,7 @@ module.exports.scanCheckpoint = async (req, res) => {
             default:
                 mappedOrderStatus = null;
         }
+        
         // Chỉ gọi nếu shipment có order_id và mappedOrderStatus hợp lệ
         if (shipment.order_id && mappedOrderStatus) {
             try {
