@@ -12,10 +12,11 @@ const authenticateToken = require('../middlewares/auth');
 Router.post('/shipping-orders', ShipmentController.createShippingOrder); // Tạo vận đơn mới
 Router.get('/shipping-orders', ShipmentController.getShippingOrders); // Danh sách vận đơn
 Router.get('/shipping-orders/order/:id', ShipmentController.getShippingOrderByOrderId); // Lấy chi tiết vận đơn theo order_id
+Router.get('/shipping-orders/returned-order/:id', ShipmentController.getShippingOrderByReturnedOrderId); // Lấy chi tiết vận đơn theo returned_order_id
 Router.get('/shipping-orders/:id', ShipmentController.getShippingOrderById); // Lấy chi tiết vận đơn
 Router.post('/shipping-orders/:id/scan', ShipmentController.scanCheckpoint); // Quét mã checkpoint
 Router.get('/shipping-orders/:id/progress', ShipmentController.getProgress); // Lấy progress
-Router.patch('/shipping-orders/:id/status', ShipmentController.updateStatus); // Cập nhật trạng thái tổng
+// Router.patch('/shipping-orders/:id/status', ShipmentController.updateStatus); // Cập nhật trạng thái tổng
 
 // Shipping Provider Routes
 Router.get('/providers', ShippingProviderController.getShippingProviders);

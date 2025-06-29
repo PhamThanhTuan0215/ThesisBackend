@@ -12,6 +12,11 @@ const Shipment = sequelize.define('Shipment', {
         allowNull: false,
         comment: 'ID đơn hàng gốc'
     },
+    returned_order_id: {
+        type: DataTypes.BIGINT,
+        allowNull: true,
+        comment: 'ID đơn hàng trả về'
+    },
     tracking_number: {
         type: DataTypes.STRING,
         allowNull: false,

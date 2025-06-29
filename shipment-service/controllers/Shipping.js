@@ -10,6 +10,7 @@ const createOrderSchema = Joi.object({
     order_id: Joi.number().required(),
     user_id: Joi.number().required(),
     seller_id: Joi.number().required(),
+    returned_order_id: Joi.number().optional()
 });
 
 // Schema validate checkpoint
@@ -141,6 +142,16 @@ module.exports.getShippingOrderByOrderId = async (req, res) => {
     }
 };
 
+// Lấy chi tiết vận đơn theo returned_order_id
+module.exports.getShippingOrderByReturnedOrderId = async (req, res) => {
+    try {
+        const shipment = await Shipment.findOne({ where: { returned_order_id: req.params.id } });
+        res.json({ code: 0, success: true, data: shipment });
+    } catch (error) {
+        res.status(500).json({ code: 2, success: false, message: error.message });
+    }
+};
+
 // Quét mã (thêm checkpoint)
 module.exports.scanCheckpoint = async (req, res) => {
     const { error } = scanSchema.validate(req.body);
@@ -201,14 +212,45 @@ module.exports.scanCheckpoint = async (req, res) => {
             default:
                 mappedOrderStatus = null;
         }
+
+        // --- CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG HOÀN TRẢ BÊN ORDER SERVICE ---
+        // Mapping shipping status -> returned order status
+        let mappedReturnedOrderStatus = null;
+        switch (newStatus) {
+            case SHIPPING_STATUS.PICKED_UP:
+                mappedReturnedOrderStatus = 'ready_to_ship'; break;
+            case SHIPPING_STATUS.IN_TRANSIT:
+            case SHIPPING_STATUS.OUT_FOR_DELIVERY:
+            case SHIPPING_STATUS.RETURNING:
+                mappedReturnedOrderStatus = 'shipping'; break;
+            case SHIPPING_STATUS.DELIVERED:
+            case SHIPPING_STATUS.RETURNED:
+                mappedReturnedOrderStatus = 'returned'; break;
+            case SHIPPING_STATUS.CANCELLED:
+            case SHIPPING_STATUS.LOST:
+            case SHIPPING_STATUS.DAMAGED:
+            case SHIPPING_STATUS.DELIVERY_FAILED:
+                mappedReturnedOrderStatus = 'failed'; break;
+            default:
+                mappedReturnedOrderStatus = null;
+        }
         
-        // Chỉ gọi nếu shipment có order_id và mappedOrderStatus hợp lệ
-        if (shipment.order_id && mappedOrderStatus) {
+        // Chỉ gọi nếu shipment có order_id và mappedOrderStatus hợp lệ (không phải đơn hàng hoàn trả)
+        if (shipment.order_id && mappedOrderStatus && shipment.returned_order_id === null) {
             try {
                 await orderServiceAxios.put(`/orders/${shipment.order_id}`, { order_status: mappedOrderStatus });
             } catch (err) {
                 // log lỗi nhưng không làm fail response
                 console.error('Failed to update order status:', err.message);
+            }
+        }
+        // Chỉ gọi nếu shipment có returned_order_id và mappedReturnedOrderStatus hợp lệ (đơn hàng hoàn trả)
+        else if (shipment.returned_order_id && mappedReturnedOrderStatus) {
+            try {
+                await orderServiceAxios.put(`/order-returns/returned-order/${shipment.returned_order_id}`, { order_status: mappedReturnedOrderStatus });
+            } catch (err) {
+                // log lỗi nhưng không làm fail response
+                console.error('Failed to update returned order status:', err.message);
             }
         }
         // --- END cập nhật trạng thái order ---

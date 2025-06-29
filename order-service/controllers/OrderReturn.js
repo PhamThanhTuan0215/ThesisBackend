@@ -449,6 +449,14 @@ exports.responseReturnRequest = async (req, res) => {
                 await item.save({ transaction });
             });
             await Promise.all(promises);
+
+            // tạo vận đơn hoàn trả
+            axiosShipmentService.post('/shipments/create', {
+                order_id: order.id,
+                returned_order_id: returnedOrder.id,
+                user_id: order.user_id,
+                seller_id: order.seller_id,
+            });
         }
 
         await transaction.commit();
