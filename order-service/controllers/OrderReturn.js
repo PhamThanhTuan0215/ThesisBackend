@@ -452,7 +452,7 @@ exports.responseReturnRequest = async (req, res) => {
             await Promise.all(promises);
 
             // tạo vận đơn hoàn trả
-            axiosShipmentService.post('/shipments/create', {
+            axiosShipmentService.post('/shipments/shipping-orders', {
                 order_id: order.id,
                 returned_order_id: returnedOrder.id,
                 user_id: order.user_id,

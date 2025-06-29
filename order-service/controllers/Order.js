@@ -262,7 +262,7 @@ module.exports.updateOrder = async (req, res) => {
         }
 
         if (order.order_status === 'confirmed') {
-            axiosShipmentService.post('/shipments/create', {
+            axiosShipmentService.post('/shipments/shipping-orders', {
                 order_id: order.id,
                 user_id: order.user_id,
                 seller_id: order.seller_id,
