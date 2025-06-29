@@ -196,7 +196,7 @@ module.exports.scanCheckpoint = async (req, res) => {
         let mappedOrderStatus = null;
         switch (newStatus) {
             case SHIPPING_STATUS.PICKED_UP:
-                mappedOrderStatus = 'waiting_for_delivery'; break;
+                mappedOrderStatus = 'ready_to_ship'; break;
             case SHIPPING_STATUS.IN_TRANSIT:
             case SHIPPING_STATUS.OUT_FOR_DELIVERY:
                 mappedOrderStatus = 'shipping'; break;
