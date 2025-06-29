@@ -261,11 +261,42 @@ module.exports.getAllStores = async (req, res) => {
             order: [['createdAt', 'DESC']]
         });
 
+        // Lấy tất cả store_id
+        const storeIds = stores.rows.map(store => store.id);
+
+        // Lấy tất cả licenses và photos liên quan
+        const [allLicenses, allPhotos] = await Promise.all([
+            StoreLicense.findAll({ where: { store_id: { [Op.in]: storeIds } } }),
+            StorePhoto.findAll({ where: { store_id: { [Op.in]: storeIds } } })
+        ]);
+
+        // Gom license và photo theo store_id
+        const licensesByStore = {};
+        allLicenses.forEach(lic => {
+            if (!licensesByStore[lic.store_id]) licensesByStore[lic.store_id] = [];
+            licensesByStore[lic.store_id].push(lic);
+        });
+        const photosByStore = {};
+        allPhotos.forEach(photo => {
+            if (!photosByStore[photo.store_id]) photosByStore[photo.store_id] = [];
+            photosByStore[photo.store_id].push(photo);
+        });
+
+        // Gắn vào từng store
+        const storesWithDetails = stores.rows.map(store => {
+            const storeJson = store.toJSON();
+            return {
+                ...storeJson,
+                licenses: licensesByStore[store.id] || [],
+                photos: photosByStore[store.id] || []
+            };
+        });
+
         return res.status(200).json({
             code: 0,
             message: 'Lấy danh sách cửa hàng thành công',
             data: {
-                stores: stores.rows,
+                stores: storesWithDetails,
                 total: stores.count,
                 totalPages: Math.ceil(stores.count / limit),
                 currentPage: parseInt(page)
@@ -637,7 +668,7 @@ module.exports.updateLicense = async (req, res) => {
     try {
         const { id, licenseId } = req.params;
         const { license_type, license_number, issued_date, expired_date, status } = req.body;
-        const isAdmin = req.user?.role === 'admin'; // Giả sử middleware auth đã thêm thông tin user vào req
+        let isAdmin = req.user?.role === 'admin';
 
         const store = await Store.findByPk(id);
         if (!store) {
@@ -1031,6 +1062,81 @@ module.exports.updateStoreBalance = async (req, res) => {
             data: storeWithDetails
         });
     } catch (error) {
+        return res.status(500).json({
+            code: 2,
+            message: 'Lỗi server',
+            error: error.message
+        });
+    }
+};
+
+// Cập nhật trạng thái giấy phép (không kiểm tra quyền)
+module.exports.updateLicenseStatus = async (req, res) => {
+    const transaction = await sequelize.transaction();
+    try {
+        const { id, licenseId } = req.params;
+        const { status } = req.body;
+        if (!['pending', 'approved', 'rejected', 'expired'].includes(status)) {
+            return res.status(400).json({
+                code: 1,
+                message: 'Trạng thái không hợp lệ'
+            });
+        }
+        const store = await Store.findByPk(id);
+        if (!store) {
+            return res.status(404).json({
+                code: 1,
+                message: 'Không tìm thấy cửa hàng'
+            });
+        }
+        const license = await StoreLicense.findOne({
+            where: { id: licenseId, store_id: id }
+        });
+        if (!license) {
+            return res.status(404).json({
+                code: 1,
+                message: 'Không tìm thấy giấy phép'
+            });
+        }
+        // Nếu duyệt (approved) thì các license cũ cùng loại sẽ bị expired
+        if (status === 'approved') {
+            const existingLicenses = await StoreLicense.findAll({
+                where: {
+                    store_id: id,
+                    license_type: license.license_type,
+                    id: { [Op.ne]: licenseId },
+                    status: 'approved'
+                },
+                transaction
+            });
+            for (const oldLicense of existingLicenses) {
+                // Xóa ảnh cũ trên Cloudinary nếu URL khác với giấy phép mới
+                if (oldLicense.license_url && oldLicense.license_url !== license.license_url) {
+                    const oldLicensePublicId = oldLicense.license_url.split('/').pop().split('.')[0];
+                    await deleteFile(`${folderPathUpload}/licenses/${oldLicensePublicId}`);
+                }
+                await oldLicense.update({ status: 'expired' }, { transaction });
+            }
+        }
+        await license.update({ status }, { transaction });
+        await transaction.commit();
+        // Lấy lại thông tin cửa hàng kèm license và photos
+        const [licenses, photos] = await Promise.all([
+            StoreLicense.findAll({ where: { store_id: id } }),
+            StorePhoto.findAll({ where: { store_id: id } })
+        ]);
+        const storeWithDetails = {
+            ...store.toJSON(),
+            licenses,
+            photos
+        };
+        return res.status(200).json({
+            code: 0,
+            message: 'Cập nhật trạng thái giấy phép thành công',
+            data: storeWithDetails
+        });
+    } catch (error) {
+        await transaction.rollback();
         return res.status(500).json({
             code: 2,
             message: 'Lỗi server',

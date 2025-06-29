@@ -64,13 +64,14 @@ module.exports.calculateShippingFee = async (req, res) => {
 
 module.exports.calculateReturnShippingFee = async (req, res) => {
     try {
-        const { customer_shipping_address_id, seller_id } = req.body;
+        let { customer_shipping_address_id, seller_id } = req.body;
 
         const customerShippingAddress = await ShippingAddress.findByPk(customer_shipping_address_id);
 
         const response = await axiosStoreService.get(`/stores/${seller_id}`);
 
         const storeInfo = response.data.data;
+
 
         const responseGHN = await axiosGHN.post('/v2/shipping-order/fee', {
             service_type_id: 2,

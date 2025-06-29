@@ -371,7 +371,9 @@ exports.responseReturnRequest = async (req, res) => {
         const request = await OrderReturnRequest.findOne({
             where: {
                 id: request_id,
-                status: 'requested'
+                status: {
+                    [Op.or]: ['requested', 'rejected']
+                }
             }
         });
 
@@ -421,12 +423,11 @@ exports.responseReturnRequest = async (req, res) => {
                 seller_id: order.seller_id
             });
 
-            if (response.data.code !== 0) {
-                console.log(response.data);
-                return res.status(400).json({ code: 1, message: response.data.message || 'Có lỗi khi tính toán tiền vận chuyển cần hoàn trả' });
-            }
+            // if (response.data.code !== 0) {
+            //     return res.status(400).json({ code: 1, message: response.data.message || 'Có lỗi khi tính toán tiền vận chuyển cần hoàn trả' });
+            // }
 
-            const return_shipping_fee = response.data.data; // tiền vận chuyển cần hoàn trả
+            const return_shipping_fee = response.data.data || 30000; // tiền vận chuyển cần hoàn trả
 
             // tạo returned_order
             const returnedOrder = await ReturnedOrder.create({
@@ -495,7 +496,6 @@ exports.getReturnedOrders = async (req, res) => {
                     message: 'Trạng thái đơn hàng không hợp lệ'
                 });
             }
-            console.log(order_status);
             where.order_status = order_status;
         }
 
@@ -644,4 +644,98 @@ function extractFolderFromURL(url) {
 
     // Nếu không có thư mục
     return ''; // Trả về chuỗi rỗng
+}
+
+// LẤY DANH SÁCH ĐƠN HÀNG HOÀN TRẢ KÈM CHI TIẾT SẢN PHẨM, USER, SHIPMENT
+exports.getAllReturnedOrdersWithDetails = async (req, res) => {
+    try {
+        const { seller_id, user_id, order_status, payment_refund_status, startDate, endDate } = req.query;
+        const where = {};
+        if (seller_id) where.seller_id = seller_id;
+        if (user_id) where.user_id = user_id;
+        if (order_status) {
+            if (!['processing', 'returned', 'failed'].includes(order_status)) {
+                return res.status(400).json({ code: 1, message: 'Trạng thái đơn hàng không hợp lệ' });
+            }
+            where.order_status = order_status;
+        }
+        if (payment_refund_status) {
+            if (!['pending', 'completed', 'failed'].includes(payment_refund_status)) {
+                return res.status(400).json({ code: 1, message: 'Trạng thái hoàn tiền không hợp lệ' });
+            }
+            where.payment_refund_status = payment_refund_status;
+        }
+        // Filter theo ngày hoàn trả
+        let selectedStartDate = undefined;
+        let selectedEndDate = undefined;
+        if (startDate && endDate) {
+            const isValidStartDate = /^\d{4}-\d{2}-\d{2}$/.test(startDate);
+            const isValidEndDate = /^\d{4}-\d{2}-\d{2}$/.test(endDate);
+            if (!isValidStartDate || !isValidEndDate) {
+                return res.status(400).json({ code: 1, message: 'Định dạng ngày không hợp lệ. Vui lòng sử dụng: yyyy-mm-dd.' });
+            }
+            selectedStartDate = new Date(startDate);
+            selectedStartDate.setHours(0, 0, 0, 0);
+            selectedEndDate = new Date(endDate);
+            selectedEndDate.setHours(23, 59, 59, 999);
+        }
+        if (selectedStartDate && selectedEndDate) {
+            where.returned_at = {
+                [Op.gte]: selectedStartDate,
+                [Op.lte]: selectedEndDate
+            };
+        }
+        // Lấy tất cả đơn hàng hoàn trả theo filter hiện tại
+        const returnedOrders = await ReturnedOrder.findAll({
+            where,
+            order: [['returned_at', 'DESC']]
+        });
+        // Lấy chi tiết sản phẩm cho từng đơn hoàn trả
+        const returnedOrderIds = returnedOrders.map(o => o.id);
+        const allItems = await ReturnedOrderItem.findAll({
+            where: { returned_order_id: { [Op.in]: returnedOrderIds } }
+        });
+        // Gom item theo returned_order_id
+        const itemsByOrder = {};
+        allItems.forEach(item => {
+            if (!itemsByOrder[item.returned_order_id]) itemsByOrder[item.returned_order_id] = [];
+            itemsByOrder[item.returned_order_id] = itemsByOrder[item.returned_order_id] || [];
+            itemsByOrder[item.returned_order_id].push(item);
+        });
+        // Lấy thông tin shipment và user cho từng đơn hoàn trả
+        const axiosUserService = require('../services/userService');
+        const axiosShipmentService = require('../services/shipmentService');
+        const results = await Promise.all(returnedOrders.map(async (order) => {
+            let shipment = null;
+            try {
+                const shipmentRes = await axiosShipmentService.get(`/shipments/shipping-orders/returned-order/${order.id}`);
+                if (shipmentRes.data.code === 0) {
+                    shipment = shipmentRes.data.data;
+                }
+            } catch (e) { shipment = null; }
+            let userInfo = null;
+            try {
+                const userRes = await axiosUserService.get(`users/info/${order.user_id}`);
+                if (userRes.data && userRes.data.data) {
+                    userInfo = userRes.data.data;
+                }
+            } catch (e) { userInfo = null; }
+            return {
+                ...order.dataValues,
+                shipment,
+                user: userInfo,
+                items: itemsByOrder[order.id] || []
+            };
+        }));
+        // Tổng số đơn hàng hoàn trả theo filter hiện tại
+        const total = returnedOrders.length;
+        return res.status(200).json({
+            code: 0,
+            message: 'Lấy danh sách đơn hàng hoàn trả chi tiết thành công',
+            data: results,
+            total
+        });
+    } catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lấy danh sách đơn hàng hoàn trả chi tiết thất bại', error: error.message });
+    }
 }

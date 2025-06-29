@@ -4,17 +4,18 @@ const sequelize = require('./database/sequelize')
 const bodyParser = require('body-parser');
 
 require('dotenv').config()
-const {PORT} = process.env
+const { PORT } = process.env
 
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
 app.get('/', (req, res) => {
-    return res.status(200).json({code: 0, message: 'Run order service successfully'})
+    return res.status(200).json({ code: 0, message: 'Run order service successfully' })
 })
 
 app.use("/orders", require("./routers/Order"))
 app.use("/order-returns", require("./routers/OrderReturn"))
+app.use("/reports", require("./routers/Report"))
 
 sequelize.authenticate()
     .then(() => {

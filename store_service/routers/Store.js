@@ -36,6 +36,9 @@ Router.patch('/:id/banner', Controller.uploadBanner, Controller.updateStoreBanne
 Router.post('/:id/license', Controller.uploadLicense, Controller.addLicense);
 // Cập nhật giấy phép cụ thể
 Router.patch('/:id/license/:licenseId', Controller.uploadLicense, Controller.updateLicense);
+// Cập nhật trạng thái giấy phép
+Router.patch('/:id/license/:licenseId/status', Controller.updateLicenseStatus);
+
 // Xóa giấy phép cụ thể
 Router.delete('/:id/license/:licenseId', Controller.deleteLicense);
 

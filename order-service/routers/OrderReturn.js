@@ -26,6 +26,9 @@ Router.put('/request/:request_id/response', Controller.responseReturnRequest)
 // Lấy danh sách đơn hàng hoàn trả
 Router.get('/returned-orders', Controller.getReturnedOrders)
 
+// Lấy danh sách đơn hàng hoàn trả kèm chi tiết sản phẩm, user, shipment
+Router.get('/returned-orders-details', Controller.getAllReturnedOrdersWithDetails)
+
 // Lấy chi tiết đơn hàng hoàn trả bằng id của đơn hàng hoàn trả (returned_order_id)
 Router.get('/returned-order/details', Controller.getReturnedOrderDetail)
 
