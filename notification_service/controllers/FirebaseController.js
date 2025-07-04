@@ -27,7 +27,8 @@ const getNotifications = async (req, res) => {
     const { target_id, target_type, store_id } = req.query;
     try {
         const notifications = await NotificationService.getNotifications(target_id ?? null, target_type, store_id ?? null);
-        return res.status(200).json({ code: 0, message: "Fetched notifications successfully", data: notifications });
+        const total = await NotificationService.countUnreadNotifications(notifications);
+        return res.status(200).json({ code: 0, message: "Fetched notifications successfully", data: notifications, total });
     } catch (error) {
         return res.status(500).json({ code: 1, message: "Error fetching notifications", error: error.message });
     }

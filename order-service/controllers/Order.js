@@ -12,6 +12,7 @@ const axiosPaymentService = require('../services/paymentService')
 const axiosUserService = require('../services/userService')
 const axiosStoreService = require('../services/storeService')
 const axiosShipmentService = require('../services/shipmentService')
+const axiosNotificationService = require('../services/notificationService')
 
 module.exports.getOrder = async (req, res) => {
     try {
@@ -188,6 +189,20 @@ module.exports.createOrder = async (req, res) => {
                 product_ids: orderItems.map(item => item.product_id)
             });
 
+            axiosNotificationService.post('/notifications', {
+                target_type: 'seller',
+                title: 'Đơn hàng mới chờ xác nhận',
+                body: `Đơn hàng mới #${order.id} đã được tạo, vui lòng xác nhận`,
+                store_id: store.seller_id
+            });
+
+            axiosNotificationService.post('/notifications', {
+                target_type: 'customer',
+                title: 'Đặt hàng thành công',
+                body: `Đơn hàng #${order.id} đã được đạt thành công`,
+                target_id: user_id
+            });
+
             // tạo thông tin các đơn hàng để gửi email (orders_info, mỗi phần từ là 1 đơn hàng, trong 1 đơn hàng ngoài các thông tin đơn hàng còn có các thông tin về các sản phẩm trong đơn hàng (order.order_items))
             orders_info.push({
                 ...order.dataValues,
@@ -249,24 +264,110 @@ module.exports.updateOrder = async (req, res) => {
 
         await order.save();
 
-        if (order.is_completed) {
-            // cập nhật dữ liệu về các sản phẩm đã mua (gọi api của product service)
-            axiosProductService.put('/purchased-products/update-status', {
-                order_id: order.id,
-                status: 'completed'
-            });
-            axiosStoreService.put(`/stores/${order.seller_id}/balance`, {
-                balance: order.final_total * 0.75,
-                type: 'add',
-            });
-        }
+        // Gửi notification dựa vào trạng thái mới
+        try {
+            // Gửi notification cho từng trạng thái đơn hàng
+            if (order_status && order_status !== '') {
+                switch (order_status) {
+                    case 'confirmed':
+                        // Gửi cho seller
+                        axiosNotificationService.post('/notifications', {
+                            target_type: 'seller',
+                            store_id: order.seller_id,
+                            title: 'Đơn hàng đã được xác nhận',
+                            body: `Đơn hàng #${order.id} đã được xác nhận, vui lòng chuẩn bị hàng để giao.`
+                        });
+                        // Gửi cho customer
+                        axiosNotificationService.post('/notifications', {
+                            target_type: 'customer',
+                            target_id: order.user_id,
+                            title: 'Đơn hàng đã được xác nhận',
+                            body: `Đơn hàng #${order.id} của bạn đã được xác nhận và sẽ sớm được giao.`
+                        });
 
-        if (order.order_status === 'confirmed') {
-            axiosShipmentService.post('/shipments/shipping-orders', {
-                order_id: order.id,
-                user_id: order.user_id,
-                seller_id: order.seller_id,
-            });
+                        axiosShipmentService.post('/shipments/shipping-orders', {
+                            order_id: order.id,
+                            user_id: order.user_id,
+                            seller_id: order.seller_id,
+                        });
+                        break;
+
+                    case 'ready_to_ship':
+                        // Gửi cho seller
+                        axiosNotificationService.post('/notifications', {
+                            target_type: 'seller',
+                            store_id: order.seller_id,
+                            title: 'Đơn hàng đã được lấy hàng thành công',
+                            body: `Đơn hàng #${order.id} đã được lấy hàng thành công.`
+                        });
+                        // Gửi cho customer
+                        axiosNotificationService.post('/notifications', {
+                            target_type: 'customer',
+                            target_id: order.user_id,
+                            title: 'Đơn hàng đã được lấy hàng thành công',
+                            body: `Đơn hàng #${order.id} của bạn đã được lấy hàng thành công.`
+                        });
+                        break;
+
+                    case 'shipping':
+                        // Gửi cho customer
+                        axiosNotificationService.post('/notifications', {
+                            target_type: 'customer',
+                            target_id: order.user_id,
+                            title: 'Đơn hàng đang được giao',
+                            body: `Đơn hàng #${order.id} của bạn đang được giao.`
+                        });
+                        break;
+                    case 'delivered':
+                        // Gửi cho customer
+                        axiosNotificationService.post('/notifications', {
+                            target_type: 'customer',
+                            target_id: order.user_id,
+                            title: 'Đơn hàng đã giao thành công',
+                            body: `Đơn hàng #${order.id} của bạn đã được giao thành công. Cảm ơn bạn đã mua hàng!`
+                        });
+                        break;
+                    case 'cancelled':
+                        // Gửi cho customer
+                        axiosNotificationService.post('/notifications', {
+                            target_type: 'customer',
+                            target_id: order.user_id,
+                            title: 'Đơn hàng đã bị hủy',
+                            body: `Đơn hàng #${order.id} của bạn đã bị hủy.`
+                        });
+                        // Gửi cho seller
+                        axiosNotificationService.post('/notifications', {
+                            target_type: 'seller',
+                            target_id: order.seller_id,
+                            store_id: order.seller_id,
+                            title: 'Đơn hàng đã bị hủy',
+                            body: `Đơn hàng #${order.id} đã bị khách hàng hủy.`
+                        });
+                        break;
+                    case 'refunded':
+                        // Gửi cho customer
+                        axiosNotificationService.post('/notifications', {
+                            target_type: 'customer',
+                            target_id: order.user_id,
+                            title: 'Đơn hàng đã được hoàn tiền',
+                            body: `Đơn hàng #${order.id} của bạn đã được hoàn tiền.`
+                        });
+                        break;
+                    default:
+                        break;
+                }
+            }
+            // Gửi notification khi thanh toán thành công
+            if (payment_status && payment_status === 'completed') {
+                axiosNotificationService.post('/notifications', {
+                    target_type: 'customer',
+                    target_id: order.user_id,
+                    title: 'Thanh toán thành công',
+                    body: `Đơn hàng #${order.id} của bạn đã được thanh toán thành công.`
+                });
+            }
+        } catch (notifyErr) {
+            console.log('Gửi notification thất bại:', notifyErr);
         }
 
         return res.status(200).json({ code: 0, message: 'Cập nhật đơn hàng thành công', data: order });

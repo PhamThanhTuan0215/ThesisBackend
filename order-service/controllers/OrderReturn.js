@@ -8,6 +8,7 @@ const { Op } = require('sequelize');
 
 const axiosShipmentService = require('../services/shipmentService')
 const axiosProductService = require('../services/productService')
+const axiosNotificationService = require('../services/notificationService')
 
 const { uploadFiles, deleteFile } = require('../utils/manageFilesOnCloudinary')
 
@@ -186,6 +187,20 @@ exports.createReturnRequest = async (req, res) => {
         await Promise.all(promises);
 
         await transaction.commit();
+
+        axiosNotificationService.post('/notifications', {
+            target_type: 'customer',
+            target_id: order.user_id,
+            title: 'Yêu cầu hoàn trả đã được gửi',
+            body: `Yêu cầu hoàn trả #${returnRequest.id} đã được gửi.`
+        });
+
+        axiosNotificationService.post('/notifications', {
+            target_type: 'seller',
+            store_id: order.seller_id,
+            title: 'Có yêu cầu hoàn trả mới',
+            body: `Có yêu cầu hoàn trả mới từ đơn hàng #${order.id}.`
+        });
 
         return res.status(201).json({
             code: 0,
@@ -390,18 +405,18 @@ exports.responseReturnRequest = async (req, res) => {
         request.response_at = new Date();
         await request.save({ transaction });
 
+        // lấy đơn hàng gốc
+        const order = await Order.findOne({
+            where: {
+                id: request.order_id
+            }
+        });
+
         if (status === 'accepted') {
             // lấy dánh sách returned_order_item
             const returnedOrderItems = await ReturnedOrderItem.findAll({
                 where: {
                     order_return_request_id: request.id
-                }
-            });
-
-            // lấy đơn hàng gốc
-            const order = await Order.findOne({
-                where: {
-                    id: request.order_id
                 }
             });
 
@@ -458,6 +473,38 @@ exports.responseReturnRequest = async (req, res) => {
                 user_id: order.user_id,
                 seller_id: order.seller_id,
             });
+
+            // gửi notification cho customer
+            axiosNotificationService.post('/notifications', {
+                target_type: 'customer',
+                target_id: order.user_id,
+                title: 'Yêu cầu hoàn trả đã được chấp nhận',
+                body: `Yêu cầu hoàn trả #${request.id} đã được chấp nhận.`
+            });
+        }
+        else {
+            if (req.user.role === 'admin_system' || req.user.role === 'staff_system') {
+                axiosNotificationService.post('/notifications', {
+                    target_type: 'seller',
+                    store_id: order.seller_id,
+                    title: 'Yêu cầu từ chối hoàn trả đã được chấp nhận',
+                    body: `Yêu cầu từ chối hoàn trả #${request.id} đã được chấp nhận.`
+                });
+
+                axiosNotificationService.post('/notifications', {
+                    target_type: 'customer',
+                    target_id: order.user_id,
+                    title: 'Yêu cầu hoàn trả của bạn đã bị từ chối',
+                    body: `Yêu cầu hoàn trả #${request.id} của bạn đã bị từ chối.`
+                });
+            }
+            else {
+                axiosNotificationService.post('/notifications', {
+                    target_type: 'platform',
+                    title: 'Có yêu cầu từ chối hoàn trả mới',
+                    body: `Có yêu cầu từ chối hoàn trả mới từ đơn hàng #${order.id}.`
+                });
+            }
         }
 
         await transaction.commit();
@@ -572,8 +619,98 @@ exports.updateReturnedOrder = async (req, res) => {
 
         await returnedOrder.save();
 
-        if (returnedOrder.is_completed) {
+        // Gửi notification dựa vào trạng thái mới
+        try {
+            if (order_status && order_status !== '') {
+                switch (order_status) {
+                    case 'ready_to_ship':
+                        // Gửi cho seller
+                        axiosNotificationService.post('/notifications', {
+                            target_type: 'seller',
+                            store_id: returnedOrder.seller_id,
+                            title: 'Đơn hoàn trả đã lấy hàng thành công',
+                            body: `Đơn hoàn trả #${returnedOrder.id} đã lấy hàng thành công.`
+                        });
+                        // Gửi cho customer
+                        axiosNotificationService.post('/notifications', {
+                            target_type: 'customer',
+                            target_id: returnedOrder.user_id,
+                            title: 'Đơn hoàn trả đã lấy hàng thành công',
+                            body: `Đơn hoàn trả #${returnedOrder.id} của bạn đã lấy hàng thành công.`
+                        });
+                        break;
+                    case 'shipping':
+                        // Gửi cho customer
+                        axiosNotificationService.post('/notifications', {
+                            target_type: 'customer',
+                            target_id: returnedOrder.user_id,
+                            title: 'Đơn hoàn trả đang được vận chuyển',
+                            body: `Đơn hoàn trả #${returnedOrder.id} của bạn đang được vận chuyển.`
+                        });
+                        break;
+                    case 'returned':
+                        // Gửi cho customer
+                        axiosNotificationService.post('/notifications', {
+                            target_type: 'customer',
+                            target_id: returnedOrder.user_id,
+                            title: 'Đơn hoàn trả đã hoàn thành',
+                            body: `Đơn hoàn trả #${returnedOrder.id} của bạn đã hoàn thành.`
+                        });
+                        // Gửi cho seller
+                        axiosNotificationService.post('/notifications', {
+                            target_type: 'seller',
+                            store_id: returnedOrder.seller_id,
+                            title: 'Đơn hoàn trả đã hoàn thành',
+                            body: `Đơn hoàn trả #${returnedOrder.id} đã hoàn thành.`
+                        });
+                        break;
+                    case 'failed':
+                        // Gửi cho customer
+                        axiosNotificationService.post('/notifications', {
+                            target_type: 'customer',
+                            target_id: returnedOrder.user_id,
+                            title: 'Đơn hoàn trả thất bại',
+                            body: `Đơn hoàn trả #${returnedOrder.id} của bạn đã thất bại.`
+                        });
+                        // Gửi cho seller
+                        axiosNotificationService.post('/notifications', {
+                            target_type: 'seller',
+                            store_id: returnedOrder.seller_id,
+                            title: 'Đơn hoàn trả thất bại',
+                            body: `Đơn hoàn trả #${returnedOrder.id} đã thất bại.`
+                        });
+                        break;
+                    default:
+                        break;
+                }
+            }
+            if (payment_refund_status && payment_refund_status !== '') {
+                switch (payment_refund_status) {
+                    case 'completed':
+                        axiosNotificationService.post('/notifications', {
+                            target_type: 'customer',
+                            target_id: returnedOrder.user_id,
+                            title: 'Hoàn tiền thành công',
+                            body: `Đơn hoàn trả #${returnedOrder.id} của bạn đã được hoàn tiền thành công.`
+                        });
+                        break;
+                    case 'failed':
+                        axiosNotificationService.post('/notifications', {
+                            target_type: 'customer',
+                            target_id: returnedOrder.user_id,
+                            title: 'Hoàn tiền thất bại',
+                            body: `Đơn hoàn trả #${returnedOrder.id} của bạn hoàn tiền thất bại. Vui lòng liên hệ hỗ trợ.`
+                        });
+                        break;
+                    default:
+                        break;
+                }
+            }
+        } catch (notifyErr) {
+            console.log('Gửi notification hoàn trả thất bại:', notifyErr);
+        }
 
+        if (returnedOrder.is_completed) {
             const returnedOrderItems = await ReturnedOrderItem.findAll({
                 where: {
                     returned_order_id: returnedOrder.id

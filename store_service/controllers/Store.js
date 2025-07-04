@@ -4,6 +4,8 @@ const StorePhoto = require('../database/models/StorePhoto');
 const UserSellerAccess = require('../database/models/user_seller_access');
 const sendMail = require("../configs/sendMail.js")
 
+const axiosNotificationService = require('../services/notificationService')
+
 const { uploadFiles, deleteFile } = require('../utils/manageFilesOnCloudinary.js')
 
 const { Op } = require('sequelize');
@@ -178,6 +180,12 @@ module.exports.createStore = async (req, res) => {
 
         // Lấy thông tin đầy đủ của cửa hàng
         const storeWithDetails = await getStoreWithDetails(store.id);
+
+        axiosNotificationService.post('/notifications', {
+            target_type: 'platform',
+            title: 'Có cửa hàng mới được tạo',
+            body: `Có cửa hàng mới được tạo: ${store.name}, vui lòng xem xét và duyệt.`
+        });
 
         return res.status(201).json({
             code: 0,
@@ -1117,6 +1125,21 @@ module.exports.updateLicenseStatus = async (req, res) => {
                 }
                 await oldLicense.update({ status: 'expired' }, { transaction });
             }
+
+            axiosNotificationService.post('/notifications', {
+                target_type: 'seller',
+                store_id: id,
+                title: 'Giấy phép đã được duyệt',
+                body: `Giấy phép của bạn đã được duyệt, vui lòng kiểm tra.`
+            });
+        }
+        else {
+            axiosNotificationService.post('/notifications', {
+                target_type: 'seller',
+                store_id: id,
+                title: 'Giấy phép đã bị từ chối',
+                body: `Giấy phép của bạn đã bị từ chối, vui lòng kiểm tra.`
+            });
         }
         await license.update({ status }, { transaction });
         await transaction.commit();

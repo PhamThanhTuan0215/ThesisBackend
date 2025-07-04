@@ -11,7 +11,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 const firebaseRoute = require("./routes/FirebaseRoute");
 
-app.use("/api/firebase", firebaseRoute);
+app.use("/notifications", firebaseRoute);
 
 app.get('/', (req, res) => {
     return res.status(200).json({ code: 0, message: 'Run notification service successfully' })

@@ -14,7 +14,8 @@ const {
     URL_DISCOUNT_SERVICE,
     URL_ORDER_SERVICE,
     URL_PAYMENT_SERVICE,
-    URL_SHIPMENT_SERVICE
+    URL_SHIPMENT_SERVICE,
+    URL_NOTIFICATION_SERVICE
 } = process.env
 
 app.use(cors());
@@ -32,6 +33,7 @@ app.use('/discount', proxy(URL_DISCOUNT_SERVICE))
 app.use('/order', proxy(URL_ORDER_SERVICE, { limit: '100mb' }))
 app.use('/payment', proxy(URL_PAYMENT_SERVICE))
 app.use('/shipment', proxy(URL_SHIPMENT_SERVICE))
+app.use('/notification', proxy(URL_NOTIFICATION_SERVICE))
 
 app.listen(PORT || 3000, () => {
     console.log('http://localhost:' + (PORT || 3000));

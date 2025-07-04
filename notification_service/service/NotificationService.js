@@ -2,6 +2,7 @@ const admin = require("../utils/firebase");
 
 class NotificationService {
     static async sendNotification(target_id, target_type, title, body, store_id = null, data = {}) {
+        //target_type: 'customer', 'seller', 'shipper', 'flatform'
         // Lấy danh sách token từ collection fcm_token
         let tokenQuery = admin.firestore().collection('fcm_tokens').where('target_type', '==', target_type);
         if (target_id !== null && target_id !== undefined) {
@@ -36,7 +37,9 @@ class NotificationService {
         }
     }
 
-    static async logNotification(target_id, target_type, title, body, store_id = null, data = {}) {
+    static async logNotification(target_id = null, target_type, title, body, store_id = null, data = {}) {
+        target_id = target_id !== null && target_id !== undefined ? parseInt(target_id) : null;
+        store_id = store_id !== null && store_id !== undefined ? parseInt(store_id) : null;
         return await admin.firestore().collection('notifications').add({
             target_id,
             target_type,
@@ -79,7 +82,7 @@ class NotificationService {
         return { id: notificationId, is_read: true };
     }
 
-    static async saveFcmToken(target_id, target_type, token, store_id = null) {
+    static async saveFcmToken(target_id = null, target_type, token, store_id = null) {
         const fcmTokensRef = admin.firestore().collection('fcm_tokens');
         let query = fcmTokensRef.where('target_type', '==', target_type).where('token', '==', token);
         if (target_id !== null && target_id !== undefined) {
@@ -107,6 +110,13 @@ class NotificationService {
             });
             return { id: doc.id, created: true };
         }
+    }
+
+    static async countUnreadNotifications(notifications = null) {
+        if (Array.isArray(notifications)) {
+            return notifications.filter(n => n.is_read === false).length;
+        }
+        return 0;
     }
 }
 

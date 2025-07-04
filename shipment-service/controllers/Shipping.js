@@ -77,6 +77,13 @@ module.exports.createShippingOrder = async (req, res) => {
             current_status: SHIPPING_STATUS.WAITING_FOR_PICKUP,
             progress: [],
         });
+
+        axiosNotificationService.post('/notifications', {
+            target_type: 'shipper',
+            title: 'Có đơn vận chuyển mới được tạo',
+            body: `Có đơn vận chuyển mới được tạo, vui lòng đi lấy hàng.`
+        });
+
         res.status(201).json({ code: 0, success: true, data: shipment });
     } catch (error) {
         res.status(500).json({ code: 2, success: false, message: error.message });
@@ -163,10 +170,10 @@ module.exports.scanCheckpoint = async (req, res) => {
         if (!shipment) {
             return res.status(404).json({ code: 3, success: false, message: 'Shipping order not found' });
         }
-        
+
         // Tự động sinh note
         const note = formatNote(req.body.status, req.body.location);
-        
+
         // Thêm checkpoint vào progress
         const checkpoint = {
             location: req.body.location,
@@ -174,21 +181,21 @@ module.exports.scanCheckpoint = async (req, res) => {
             note,
             timestamp: new Date(),
         };
-        
+
         const progress = Array.isArray(shipment.progress) ? [...shipment.progress] : [];
         progress.push(checkpoint);
-        
+
         // Map checkpoint status sang shipping status nếu có quy tắc
         let newStatus = shipment.current_status;
         if (CHECKPOINT_TO_SHIPPING_STATUS[req.body.status]) {
             newStatus = CHECKPOINT_TO_SHIPPING_STATUS[req.body.status];
         }
-        
+
         // QUAN TRỌNG: Phải mark field progress đã thay đổi
         shipment.progress = progress;
         shipment.current_status = newStatus;
         shipment.changed('progress', true);
-        
+
         await shipment.save();
 
         // --- CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG BÊN ORDER SERVICE ---
@@ -234,7 +241,7 @@ module.exports.scanCheckpoint = async (req, res) => {
             default:
                 mappedReturnedOrderStatus = null;
         }
-        
+
         // Chỉ gọi nếu shipment có order_id và mappedOrderStatus hợp lệ (không phải đơn hàng hoàn trả)
         if (shipment.order_id && mappedOrderStatus && shipment.returned_order_id === null) {
             try {

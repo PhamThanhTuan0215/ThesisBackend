@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const sendMail = require("../configs/sendMail.js")
 
+const axiosNotificationService = require('../services/notificationService')
 
 const { uploadFiles, deleteFile } = require('../utils/manageFilesOnCloudinary')
 
@@ -22,12 +23,23 @@ module.exports.uploadCustom = upload.fields([
     { name: 'avatar', maxCount: 1 }
 ]);
 
-module.exports.getAllCustomers = async (req, res) => {
+module.exports.getAllAccounts = async (req, res) => {
     try {
+        const { role } = req.query;
+        let whereCondition = {};
+
+        if (!role || role === 'customer') {
+            whereCondition = { role: 'customer' };
+        } else if (role === 'seller') {
+            whereCondition = { role: { [Op.in]: ['admin_seller', 'staff_seller'] } };
+        } else if (role === 'system') {
+            whereCondition = { role: { [Op.in]: ['admin_system', 'staff_system'] } };
+        } else {
+            whereCondition = { role: role }; // Để truy vấn một role cụ thể nếu cần
+        }
+
         const users = await User.findAll({
-            where: {
-                role: 'customer'
-            }
+            where: whereCondition
         });
         // Loại bỏ password khỏi từng user
         const usersWithoutPassword = users.map(user => {
@@ -35,7 +47,7 @@ module.exports.getAllCustomers = async (req, res) => {
             delete userObj.password;
             return userObj;
         });
-        return res.status(200).json({ code: 0, message: 'Lấy danh sách người dùng thành công', data: usersWithoutPassword });
+        return res.status(200).json({ code: 0, message: 'Lấy danh sách tài khoản thành công', data: usersWithoutPassword });
     } catch (error) {
         return res.status(500).json({ code: 2, message: 'Lỗi server', error: error.message });
     }
@@ -72,6 +84,13 @@ module.exports.register = async (req, res) => {
             fullname,
             phone
         });
+
+        axiosNotificationService.post('/notifications', {
+            target_type: 'platform',
+            title: 'Có tài khoản mới được đăng ký',
+            body: `Có tài khoản mới được đăng ký: ${email}.`
+        });
+
         return res.status(201).json({ code: 0, message: 'Đăng ký thành công', data: newUser });
     } catch (error) {
         return res.status(500).json({ code: 2, message: 'Lỗi server', error: error.message });
@@ -396,19 +415,14 @@ module.exports.forgotPassword = async (req, res) => {
     }
 }
 
-module.exports.adminUpdateCustomer = async (req, res) => {
+module.exports.adminUpdateAccount = async (req, res) => {
     try {
-        // Chỉ cho phép admin
-        // if (req.user.role !== 'admin') {
-        //     return res.status(403).json({ code: 1, message: 'Bạn không có quyền chỉnh sửa thông tin người dùng' });
-        // }
-
         const { id } = req.params;
-        const { email, fullname, phone, status } = req.body;
+        const { email, fullname, phone, status, role } = req.body;
 
-        const user = await User.findOne({ where: { id, role: 'customer' } });
+        const user = await User.findOne({ where: { id } });
         if (!user) {
-            return res.status(404).json({ code: 1, message: 'Không tìm thấy người dùng' });
+            return res.status(404).json({ code: 1, message: 'Không tìm thấy tài khoản' });
         }
 
         // Kiểm tra email mới đã tồn tại chưa (nếu có thay đổi)
@@ -419,18 +433,114 @@ module.exports.adminUpdateCustomer = async (req, res) => {
             }
         }
 
+        // Kiểm tra role hợp lệ nếu được cung cấp
+        if (role && !['customer', 'admin_system', 'staff_system', 'admin_seller', 'staff_seller'].includes(role)) {
+            return res.status(400).json({ code: 1, message: 'Role không hợp lệ' });
+        }
+
+        // Kiểm tra status hợp lệ nếu được cung cấp
+        if (status && !['active', 'inactive', 'banned'].includes(status)) {
+            return res.status(400).json({ code: 1, message: 'Status không hợp lệ' });
+        }
+
         await user.update({
             email: email || user.email,
             fullname: fullname || user.fullname,
             phone: phone || user.phone,
-            status: status || user.status
+            status: status || user.status,
+            role: role || user.role
         });
 
         // Xóa password trước khi trả về
         const userData = user.get({ plain: true });
         delete userData.password;
 
-        return res.status(200).json({ code: 0, message: 'Cập nhật thông tin người dùng thành công', data: userData });
+        return res.status(200).json({ code: 0, message: 'Cập nhật thông tin tài khoản thành công', data: userData });
+    } catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lỗi server', error: error.message });
+    }
+};
+
+module.exports.adminCreateAccount = async (req, res) => {
+    try {
+        const { email, fullname, phone, password, role, status } = req.body;
+
+        // Kiểm tra các trường bắt buộc
+        if (!email || !fullname || !phone || !password) {
+            return res.status(400).json({ code: 1, message: 'Vui lòng cung cấp đầy đủ thông tin: email, fullname, phone, password' });
+        }
+
+        // Kiểm tra email đã tồn tại chưa
+        const existingUser = await User.findOne({ where: { email } });
+        if (existingUser) {
+            return res.status(400).json({ code: 1, message: 'Email đã tồn tại' });
+        }
+
+        // Kiểm tra role hợp lệ nếu được cung cấp
+        const validRoles = ['customer', 'admin_system', 'staff_system', 'admin_seller', 'staff_seller'];
+        if (role && !validRoles.includes(role)) {
+            return res.status(400).json({ code: 1, message: 'Role không hợp lệ' });
+        }
+
+        // Kiểm tra status hợp lệ nếu được cung cấp
+        const validStatuses = ['active', 'inactive', 'banned'];
+        if (status && !validStatuses.includes(status)) {
+            return res.status(400).json({ code: 1, message: 'Status không hợp lệ' });
+        }
+
+        // Mã hóa mật khẩu
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Tạo tài khoản mới
+        const newUser = await User.create({
+            email,
+            password: hashedPassword,
+            fullname,
+            phone,
+            role: role || 'customer',
+            status: status || 'active'
+        });
+
+        // Xóa password trước khi trả về
+        const userData = newUser.get({ plain: true });
+        delete userData.password;
+
+        // Gửi email thông báo tài khoản đã được tạo
+        try {
+            const roleName = {
+                'customer': 'Khách hàng',
+                'admin_system': 'Quản trị viên hệ thống',
+                'staff_system': 'Nhân viên hệ thống',
+                'admin_seller': 'Quản trị viên cửa hàng',
+                'staff_seller': 'Nhân viên cửa hàng'
+            }[newUser.role] || newUser.role;
+
+            await sendMail({
+                to: email,
+                subject: 'Tài khoản của bạn đã được tạo',
+                text: `Xin chào ${fullname},\n\nTài khoản của bạn đã được tạo bởi quản trị viên. Dưới đây là thông tin đăng nhập của bạn:\n\nEmail: ${email}\nMật khẩu: ${password}\nLoại tài khoản: ${roleName}\n\nVui lòng đổi mật khẩu sau khi đăng nhập lần đầu.\n\nTrân trọng,\nĐội ngũ PharmaMart`,
+                html: `
+                <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #4CAF50;">Tài khoản của bạn đã được tạo</h2>
+                    <p>Xin chào <strong>${fullname}</strong>,</p>
+                    <p>Tài khoản của bạn đã được tạo bởi quản trị viên. Dưới đây là thông tin đăng nhập của bạn:</p>
+                    <div style="background-color: #f9f9f9; border-left: 4px solid #4CAF50; padding: 15px; margin: 20px 0;">
+                        <p><strong>Email:</strong> ${email}</p>
+                        <p><strong>Mật khẩu:</strong> ${password}</p>
+                        <p><strong>Loại tài khoản:</strong> ${roleName}</p>
+                    </div>
+                    <p><strong style="color: #FF5722;">Lưu ý quan trọng:</strong> Vui lòng đổi mật khẩu sau khi đăng nhập lần đầu để đảm bảo an toàn cho tài khoản của bạn.</p>
+                    <p>Nếu bạn có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi để được hỗ trợ.</p>
+                    <p>Trân trọng,<br>Đội ngũ PharmaMart</p>
+                </div>
+                `
+            });
+        } catch (emailError) {
+            console.error('Lỗi gửi email thông báo:', emailError);
+            // Vẫn tiếp tục trả về thành công ngay cả khi gửi email thất bại
+        }
+
+        return res.status(201).json({ code: 0, message: 'Tạo tài khoản thành công', data: userData });
     } catch (error) {
         return res.status(500).json({ code: 2, message: 'Lỗi server', error: error.message });
     }

@@ -3,7 +3,7 @@ const Router = express.Router();
 const Controller = require('../controllers/User');
 const { authenticateToken } = require('../middlewares/auth');
 
-Router.get('/', Controller.getAllCustomers);
+Router.get('/', Controller.getAllAccounts);
 
 Router.get('/info/:id', Controller.getInfoUser);
 
@@ -17,7 +17,9 @@ Router.post('/login', Controller.login);
 
 Router.put('/', authenticateToken, Controller.updateUser);
 
-Router.put('/editCustomer/:id', Controller.adminUpdateCustomer)
+Router.put('/account/:id', Controller.adminUpdateAccount);
+
+Router.post('/account', Controller.adminCreateAccount);
 
 Router.delete('/:id', Controller.deleteUser);
 

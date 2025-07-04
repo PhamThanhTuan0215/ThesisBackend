@@ -5,11 +5,11 @@ const { authenticateToken } = require('../middlewares/auth');
 
 const router = express.Router();
 
-router.post("/send-notification", sendNotification);
+router.post("/", sendNotification);
 
-router.get("/notifications", getNotifications);
+router.get("/", getNotifications);
 
-router.post("/notifications/mark-as-read", markAsRead);
+router.post("/mark-as-read", markAsRead);
 
 router.post("/save-fcm-token", saveFcmToken);
 
