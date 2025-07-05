@@ -264,6 +264,18 @@ module.exports.updateOrder = async (req, res) => {
 
         await order.save();
 
+        if (order.is_completed) {
+            // cập nhật dữ liệu về các sản phẩm đã mua (gọi api của product service)
+            axiosProductService.put('/purchased-products/update-status', {
+                order_id: order.id,
+                status: 'completed'
+            });
+            axiosStoreService.put(`/stores/${order.seller_id}/balance`, {
+                balance: order.final_total * 0.75,
+                type: 'add',
+            });
+        }
+
         // Gửi notification dựa vào trạng thái mới
         try {
             // Gửi notification cho từng trạng thái đơn hàng
