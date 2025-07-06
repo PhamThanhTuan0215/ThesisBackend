@@ -14,6 +14,10 @@ const axiosStoreService = require('../services/storeService')
 const axiosShipmentService = require('../services/shipmentService')
 const axiosNotificationService = require('../services/notificationService')
 
+// axios gọi trực tiếp không thông qua api gateway để tránh lỗi vòng lặp
+const axiosDirectProductService = require('../services/directProductService')
+const axiosDirectStoreService = require('../services/directStoreService')
+
 module.exports.getOrder = async (req, res) => {
     try {
         const { startDate, endDate, order_status, payment_status, seller_id } = req.query;
@@ -266,14 +270,24 @@ module.exports.updateOrder = async (req, res) => {
 
         if (order.is_completed) {
             // cập nhật dữ liệu về các sản phẩm đã mua (gọi api của product service)
-            axiosProductService.put('/purchased-products/update-status', {
+            console.log('Cập nhật trạng thái đơn hàng đã hoàn tất, cập nhật dữ liệu về các sản phẩm đã mua');
+            const response1 = await axiosDirectProductService.put('/purchased-products/update-status', {
                 order_id: order.id,
                 status: 'completed'
             });
-            axiosStoreService.put(`/stores/${order.seller_id}/balance`, {
+
+            console.log('reponse data product-service:', response1.data);
+
+            console.log('Cập nhật trạng thái đơn hàng đã hoàn tất, cập nhật dữ liệu về số dư cửa hàng');
+            const response2 = await axiosDirectStoreService.put(`/stores/${order.seller_id}/balance`, {
                 balance: order.final_total * 0.75,
                 type: 'add',
             });
+
+            console.log('reponse data store-service:', response2.data);
+        }
+        else {
+            console.log('Cập nhật trạng thái đơn hàng chưa hoàn tất, không cập nhật dữ liệu về các sản phẩm đã mua và số dư cửa hàng');
         }
 
         // Gửi notification dựa vào trạng thái mới
