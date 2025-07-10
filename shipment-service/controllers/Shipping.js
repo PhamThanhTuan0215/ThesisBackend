@@ -4,6 +4,7 @@ const Joi = require('joi');
 const { SHIPPING_STATUS, CHECKPOINT_STATUS, CHECKPOINT_TO_SHIPPING_STATUS } = require('../enums/status');
 const ShippingAddress = require('../database/models/ShippingAddress');
 const orderServiceAxios = require('../services/orderService');
+const axiosNotificationService = require('../services/notificationService');
 
 // Schema validate tạo vận đơn
 const createOrderSchema = Joi.object({
@@ -68,11 +69,24 @@ module.exports.createShippingOrder = async (req, res) => {
     try {
         const tracking_number = generateTrackingNumber();
         const shipping_address_to = await ShippingAddress.findOne({ where: { user_id: req.body.user_id } });
+
+        let shipping_address_from_id = null
+        let shipping_address_to_id = null
+
+        if (req.body.returned_order_id) {
+            shipping_address_from_id = shipping_address_to.id
+            shipping_address_to_id = req.body.seller_id
+        }
+        else {
+            shipping_address_from_id = req.body.seller_id
+            shipping_address_to_id = shipping_address_to.id
+        }
+
         const shipment = await Shipment.create({
             ...req.body,
             shipping_provider_id: 1,
-            shipping_address_from_id: req.body.seller_id,
-            shipping_address_to_id: shipping_address_to.id,
+            shipping_address_from_id: shipping_address_from_id,
+            shipping_address_to_id: shipping_address_to_id,
             tracking_number,
             current_status: SHIPPING_STATUS.WAITING_FOR_PICKUP,
             progress: [],
