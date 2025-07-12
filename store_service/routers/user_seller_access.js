@@ -20,6 +20,6 @@ Router.get('/:id', Controller.getAccess);
 Router.put('/:id', Controller.updateAccess);
 
 // Route xóa quyền truy cập
-Router.delete('/:id', Controller.deleteAccess);
+Router.delete('/:user_id', Controller.deleteAccess);
 
 module.exports = Router; 

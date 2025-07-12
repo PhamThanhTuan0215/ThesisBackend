@@ -7,6 +7,8 @@ Router.get('/', Controller.getAllAccounts);
 
 Router.get('/info/:id', Controller.getInfoUser);
 
+Router.get('/store', Controller.getUsersByStoreId);
+
 Router.get('/:id', Controller.getUserById);
 
 Router.post('/register', Controller.register);

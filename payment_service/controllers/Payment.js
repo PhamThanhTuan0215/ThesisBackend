@@ -745,58 +745,6 @@ module.exports.createCODPayment = async (req, res) => {
     }
 };
 
-// Cập nhật trạng thái giao dịch COD
-// module.exports.updateCODPaymentStatus = async (req, res) => {
-//     try {
-//         const { id } = req.params;
-//         const { status } = req.body;
-
-//         const payment = await Payment.findByPk(id, {
-//             include: [{
-//                 model: Payment_method,
-//                 where: { method_name: 'COD' }
-//             }]
-//         });
-
-//         if (!payment) {
-//             return res.status(404).json({
-//                 code: 3,
-//                 success: false,
-//                 message: 'COD payment not found'
-//             });
-//         }
-
-//         const validStatuses = ['pending', 'completed', 'failed', 'cancelled', 'refunded'];
-//         if (!validStatuses.includes(status)) {
-//             return res.status(400).json({
-//                 code: 5,
-//                 success: false,
-//                 message: 'Invalid status'
-//             });
-//         }
-
-//         await payment.update({
-//             status,
-//             updatedAt: new Date()
-//         });
-
-//         orderServiceAxios.put(`/orders/${payment.order_id}`, {
-//             payment_status: status
-//         });
-
-//         res.json({
-//             code: 0,
-//             success: true,
-//             data: payment
-//         });
-//     } catch (error) {
-//         res.status(500).json({
-//             code: 2,
-//             success: false,
-//             message: error.message
-//         });
-//     }
-// };
 
 // Cập nhật phương thức thanh toán (Admin only)
 module.exports.updatePaymentMethod = async (req, res) => {

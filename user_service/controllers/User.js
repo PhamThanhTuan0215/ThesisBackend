@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const sendMail = require("../configs/sendMail.js")
 
 const axiosNotificationService = require('../services/notificationService')
+const axiosStoreService = require('../services/storeService')
 
 const { uploadFiles, deleteFile } = require('../utils/manageFilesOnCloudinary')
 
@@ -559,6 +560,68 @@ module.exports.getInfoUser = async (req, res) => {
         }
         return res.status(200).json({ code: 0, message: 'Lấy thông tin người dùng thành công', data: user });
     } catch (error) {
+        return res.status(500).json({ code: 2, message: 'Lỗi server', error: error.message });
+    }
+}
+
+module.exports.getUsersByStoreId = async (req, res) => {
+    try {
+        const { store_id } = req.query;
+
+        if (!store_id) {
+            return res.status(400).json({ code: 1, message: 'Vui lòng cung cấp store_id' });
+        }
+
+        // Lấy danh sách user_id từ store service
+        const storeResponse = await axiosStoreService.get(`/user_seller_access`, {
+            params: { store_id }
+        });
+
+        if (storeResponse.status !== 200 || storeResponse.data.code !== 0) {
+            return res.status(404).json({
+                code: 1,
+                message: 'Không tìm thấy thông tin quyền truy cập của cửa hàng',
+                error: storeResponse.data?.message || 'Lỗi khi gọi API store service'
+            });
+        }
+
+        const userAccesses = storeResponse.data.data.accesses;
+
+        if (!userAccesses || userAccesses.length === 0) {
+            return res.status(200).json({
+                code: 0,
+                message: 'Cửa hàng không có tài khoản người dùng nào',
+                data: []
+            });
+        }
+
+        // Lấy danh sách user_id
+        const userIds = userAccesses.map(access => access.user_id);
+
+        // Lấy thông tin người dùng từ bảng User
+        const users = await User.findAll({
+            where: { id: userIds },
+            attributes: ['id', 'email', 'fullname', 'phone', 'avatar', 'role', 'status', 'createdAt', 'updatedAt']
+        });
+
+        // Kết hợp thông tin người dùng với thông tin quyền truy cập
+        const usersWithAccessInfo = users.map(user => {
+            const userObj = user.get({ plain: true });
+            const accessInfo = userAccesses.find(access => access.user_id === user.id);
+            return {
+                ...userObj,
+                access_status: accessInfo ? accessInfo.status : null,
+                access_id: accessInfo ? accessInfo.id : null
+            };
+        });
+
+        return res.status(200).json({
+            code: 0,
+            message: 'Lấy danh sách tài khoản của cửa hàng thành công',
+            data: usersWithAccessInfo
+        });
+    } catch (error) {
+        console.error('Error in getUsersByStoreId:', error);
         return res.status(500).json({ code: 2, message: 'Lỗi server', error: error.message });
     }
 }

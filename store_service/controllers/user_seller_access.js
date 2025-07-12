@@ -106,11 +106,11 @@ module.exports.updateAccess = async (req, res) => {
     }
 };
 
-// Xóa quyền truy cập
+// Xóa quyền truy cập by user_id
 module.exports.deleteAccess = async (req, res) => {
     try {
-        const { id } = req.params;
-        const access = await UserSellerAccess.findByPk(id);
+        const { user_id } = req.params;
+        const access = await UserSellerAccess.findOne({ where: { user_id } });
         if (!access) {
             return res.status(404).json({ code: 1, message: 'Không tìm thấy quyền truy cập' });
         }
